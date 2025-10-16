@@ -4,6 +4,12 @@ StarLogs - Star Citizen Log Parser
 Main entry point for the application.
 """
 
+# Force Rich TUI to work in compiled executables (must be before any imports)
+import os
+os.environ['TERM'] = 'xterm-256color'
+os.environ['COLORTERM'] = 'truecolor'
+os.environ['PYTHONIOENCODING'] = 'utf-8'
+
 import sys
 import signal
 import time

@@ -20,10 +20,12 @@ wheels/
 .installed.cfg
 *.egg
 
-# PyInstaller
-*.spec.backup
-*.manifest
-*.spec.log
+# Build artifacts (Nuitka)
+dist/
+*.build/
+*.dist/
+*.onefile-build/
+nuitka-crash-report.xml
 
 # Virtual environments
 venv/
@@ -52,17 +54,6 @@ starlogs_error.log
 starlogs_debug.log
 *.log
 
-# Build artifacts
-build/
-dist/
-
-# Nuitka build directories
-starlogs.build/
-starlogs.dist/
-starlogs.onefile-build/
-nuitka-crash-report.xml
-
-# Compiled executable
-StarLogs.exe
+# Release packages
 StarLogs-v*.zip
 

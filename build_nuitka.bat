@@ -25,10 +25,9 @@ echo This will take 5-10 minutes on first build...
 echo.
 
 "C:\Program Files\Python313\python.exe" -m nuitka ^
-    --onefile ^
     --standalone ^
     --assume-yes-for-downloads ^
-    --windows-console-mode=attach ^
+    --windows-console-mode=force ^
     --enable-plugin=anti-bloat ^
     --nofollow-import-to=pytest ^
     --nofollow-import-to=setuptools ^
@@ -40,11 +39,11 @@ echo.
     --include-package=watchdog ^
     --include-package=rich ^
     --jobs=32 ^
-    --output-filename=StarLogs.exe ^
+    --output-dir=dist ^
     --company-name=Ozy311 ^
     --product-name=StarLogs ^
-    --file-version=0.8.1 ^
-    --product-version=0.8.1 ^
+    --file-version=0.8.2 ^
+    --product-version=0.8.2 ^
     --file-description="Star Citizen Log Monitor and Analyzer" ^
     starlogs.py
 
@@ -62,12 +61,12 @@ echo ========================================
 echo Build Successful!
 echo ========================================
 echo.
-echo Executable location: StarLogs.exe
+echo Executable location: dist\starlogs.dist\StarLogs.exe
 echo.
 
 REM Test the executable
 echo Testing executable...
-StarLogs.exe --help
+"dist\starlogs.dist\StarLogs.exe" --help
 
 if %errorlevel% equ 0 (
     echo.

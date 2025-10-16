@@ -24,15 +24,17 @@ class ConfigManager:
     
     def __init__(self, config_file: str = "starlogs_config.json"):
         """Initialize config manager with config file path."""
-        # Store config in same directory as the executable/script
+        # Store config in same directory as executable/script
         if getattr(sys, 'frozen', False):
-            # Running as compiled exe
+            # Running as compiled exe - save in exe directory
             app_dir = Path(os.path.dirname(sys.executable))
         else:
-            # Running as script
+            # Running as script - use script directory
             app_dir = Path(__file__).parent
         
         self.config_path = app_dir / config_file
+        print(f"[Config] Config path: {self.config_path}")
+        print(f"[Config] App directory writable: {os.access(app_dir, os.W_OK)}")
         self.config = self._load_config()
     
     def _load_config(self) -> Dict[str, Any]:
@@ -58,11 +60,19 @@ class ConfigManager:
             config_to_save.pop('last_version', None)
             config_to_save.pop('log_path', None)
             
-            with open(self.config_path, 'w') as f:
+            print(f"[Config] Attempting to save config to: {self.config_path}")
+            with open(self.config_path, 'w', encoding='utf-8') as f:
                 json.dump(config_to_save, f, indent=2)
+            print(f"[Config] Config saved successfully")
             return True
         except IOError as e:
-            print(f"Error saving config: {e}")
+            print(f"[Config] ERROR saving config: {e}")
+            print(f"[Config]   Path: {self.config_path}")
+            print(f"[Config]   Exists: {self.config_path.exists()}")
+            print(f"[Config]   Parent writable: {os.access(self.config_path.parent, os.W_OK)}")
+            return False
+        except Exception as e:
+            print(f"[Config] ERROR: Unexpected error saving config: {e}")
             return False
     
     def get(self, key: str, default: Any = None) -> Any:

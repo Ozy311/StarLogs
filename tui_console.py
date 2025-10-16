@@ -14,7 +14,12 @@ from collections import deque
 import threading
 import time
 import sys
+import os
 import msvcrt  # For Windows keyboard input
+
+# Force Rich to work in compiled executables
+os.environ['TERM'] = 'xterm-256color'
+os.environ['COLORTERM'] = 'truecolor'
 
 
 class TUIConsole:
@@ -31,7 +36,15 @@ class TUIConsole:
             game_status: Dict with keys 'running', 'pid', 'memory_mb'
             config_manager: ConfigManager instance for accessing settings
         """
-        self.console = Console()
+        # Force Rich settings for compiled executables
+        # Note: Don't set fixed width/height to allow terminal resizing
+        self.console = Console(
+            force_terminal=True,
+            force_interactive=True,
+            legacy_windows=False,
+            no_color=False,
+            color_system="truecolor"
+        )
         self.max_lines = max_lines
         self.config_manager = config_manager
         

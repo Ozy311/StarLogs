@@ -5,7 +5,7 @@
 # StarLogs
 ### Star Citizen Log Parser & Event Tracker
 
-![Version](https://img.shields.io/badge/version-0.8.1-blue)
+![Version](https://img.shields.io/badge/version-0.8.2-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
 ![Python](https://img.shields.io/badge/python-3.8+-blue)
@@ -386,15 +386,37 @@ StarLogs/
     └── index.html        # Dashboard template
 ```
 
-### Building Executable
+### Building Executable (Windows)
+
+StarLogs uses **Nuitka** instead of PyInstaller to avoid antivirus false positives and produce more reliable executables.
+
+**Requirements:**
+- Python 3.13
+- Visual Studio Build Tools (C++ compiler)
+- Nuitka: `pip install nuitka`
+
+**Build Process:**
 
 ```bash
-# Build with PyInstaller
-python -m PyInstaller build_starlogs.spec
+# Run the Nuitka build script
+build_nuitka.bat
 
-# Output is a single-file executable
-dist\StarLogs.exe
+# Output directory structure
+dist\starlogs.dist\
+  ├── StarLogs.exe       # Main executable
+  ├── *.dll              # Required libraries
+  ├── static\            # Web assets
+  └── templates\         # HTML templates
 ```
+
+**Why Nuitka?**
+- Compiles Python to native C code (faster execution)
+- Significantly fewer antivirus false positives vs PyInstaller
+- Better compatibility with Rich TUI library
+- More stable with onefile extractions
+
+**Distribution:**
+Package the entire `starlogs.dist` folder. Users can run `StarLogs.exe` directly. Config saves to the same directory as the executable (`starlogs_config.json`).
 
 ### Contributing
 
