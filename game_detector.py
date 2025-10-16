@@ -180,4 +180,88 @@ class GameDetector:
                     newest = install
         
         return newest
+    
+    def validate_custom_path(self, custom_path: str) -> Optional[Dict[str, str]]:
+        """
+        Validate a custom Star Citizen installation path.
+        
+        Args:
+            custom_path: User-provided path to validate
+            
+        Returns:
+            Dict with installation info if valid, None otherwise
+        """
+        path = Path(custom_path).resolve()
+        
+        # Check if path exists
+        if not path.exists():
+            return None
+        
+        # Try to detect version by checking for known version folders
+        # or by checking if current folder contains version files
+        version_detected = None
+        version_path = None
+        
+        # Case 1: Path ends with version name (e.g., D:\StarCitizen\LIVE)
+        if path.name in self.KNOWN_VERSIONS:
+            version_detected = path.name
+            version_path = path
+        
+        # Case 2: Path contains StarCitizen and one of the version folders
+        elif (path / "StarCitizen").exists():
+            for version in self.KNOWN_VERSIONS:
+                test_path = path / "StarCitizen" / version
+                if test_path.exists():
+                    version_detected = version
+                    version_path = test_path
+                    break
+        
+        # Case 3: Check if any version folder exists in this path
+        else:
+            for version in self.KNOWN_VERSIONS:
+                test_path = path / version
+                if test_path.exists():
+                    version_detected = version
+                    version_path = test_path
+                    break
+        
+        # If no version detected, check if path itself looks like SC install
+        if not version_detected:
+            # Check for typical SC files/folders
+            indicators = ['Data.p4k', 'Bin64', 'Data', 'USER']
+            found_indicators = sum(1 for ind in indicators if (path / ind).exists())
+            
+            if found_indicators >= 2:
+                # Likely a SC folder but unknown version
+                version_detected = "CUSTOM"
+                version_path = path
+        
+        if not version_path:
+            return None
+        
+        # Build installation dict
+        log_path = version_path / "Game.log"
+        metadata = self.get_version_metadata(version_path)
+        
+        installation = {
+            'version': version_detected,
+            'path': str(version_path),
+            'log_path': str(log_path) if log_path.exists() else None,
+            'has_log': log_path.exists(),
+            'auto_detected': False
+        }
+        
+        if metadata:
+            installation.update({
+                'branch': metadata['branch'],
+                'version_string': metadata['version'],
+                'build': metadata['build'],
+                'build_date': metadata['build_date'],
+                'tag': metadata['tag'],
+                'display_name': f"{version_detected} {metadata['version']}"
+            })
+        else:
+            installation['display_name'] = version_detected
+        
+        return installation
 

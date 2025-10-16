@@ -17,10 +17,6 @@ import sys
 import os
 import msvcrt  # For Windows keyboard input
 
-# Force Rich to work in compiled executables
-os.environ['TERM'] = 'xterm-256color'
-os.environ['COLORTERM'] = 'truecolor'
-
 
 class TUIConsole:
     """Split-screen TUI console for StarLogger."""
@@ -36,14 +32,30 @@ class TUIConsole:
             game_status: Dict with keys 'running', 'pid', 'memory_mb'
             config_manager: ConfigManager instance for accessing settings
         """
-        # Force Rich settings for compiled executables
+        # Rich settings for compiled executables
+        # Try to detect VT100 support, fall back to legacy_windows if needed
         # Note: Don't set fixed width/height to allow terminal resizing
+        
+        # Check if terminal supports VT100 (Windows 10+ with VT enabled)
+        use_legacy = True
+        if os.name == 'nt':
+            import ctypes
+            kernel32 = ctypes.windll.kernel32
+            # Try to enable VT100 processing
+            STD_OUTPUT_HANDLE = -11
+            ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
+            handle = kernel32.GetStdHandle(STD_OUTPUT_HANDLE)
+            mode = ctypes.c_ulong()
+            if kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
+                mode.value |= ENABLE_VIRTUAL_TERMINAL_PROCESSING
+                if kernel32.SetConsoleMode(handle, mode):
+                    use_legacy = False  # VT100 enabled successfully
+        
         self.console = Console(
-            force_terminal=True,
-            force_interactive=True,
-            legacy_windows=False,
-            no_color=False,
-            color_system="truecolor"
+            force_terminal=True,  # Required for TUI to work
+            force_interactive=True,  # Required for Live display
+            legacy_windows=use_legacy,  # Use VT100 if available, legacy otherwise
+            no_color=False
         )
         self.max_lines = max_lines
         self.config_manager = config_manager
@@ -544,14 +556,14 @@ class TUIConsole:
         with Live(
             self.render(),
             console=self.console,
-            refresh_per_second=4,
+            refresh_per_second=2,  # Reduced from 4 for better performance
             screen=True
         ) as live:
             self.live = live
             
             while self.running:
                 live.update(self.render())
-                time.sleep(0.25)
+                time.sleep(0.5)  # Reduced from 0.25 to match refresh rate
         
         # TUI has exited - now call pending callback if set
         if self.pending_callback:

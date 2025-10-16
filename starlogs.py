@@ -4,10 +4,8 @@ StarLogs - Star Citizen Log Parser
 Main entry point for the application.
 """
 
-# Force Rich TUI to work in compiled executables (must be before any imports)
+# Ensure UTF-8 encoding for proper character handling
 import os
-os.environ['TERM'] = 'xterm-256color'
-os.environ['COLORTERM'] = 'truecolor'
 os.environ['PYTHONIOENCODING'] = 'utf-8'
 
 import sys
@@ -124,10 +122,48 @@ class StarLogs:
         self.installations = self.game_detector.find_installations()
         
         if not self.installations:
-            print("\n[ERROR] No Star Citizen installations found!")
+            print("\n[WARNING] No Star Citizen installations found!")
             print("   Searched all drives for Roberts Space Industries folder")
-            print("\nPlease ensure Star Citizen is installed and try again.")
-            sys.exit(1)
+            print("\nWould you like to enter a custom installation path? (y/n): ", end='', flush=True)
+            
+            try:
+                response = input().strip().lower()
+                if response not in ['y', 'yes']:
+                    print("\nPlease ensure Star Citizen is installed and try again.")
+                    sys.exit(1)
+                
+                # Prompt for custom path
+                print("\nEnter the path to your Star Citizen installation.")
+                print("You can provide either:")
+                print("  1. The parent folder (e.g., D:\\StarCitizen\\StarCitizen)")
+                print("  2. The version folder (e.g., D:\\StarCitizen\\StarCitizen\\LIVE)")
+                print("\nExamples:")
+                print("  D:\\StarCitizen\\StarCitizen")
+                print("  E:\\Games\\StarCitizen")
+                print("  C:\\Program Files\\Roberts Space Industries\\StarCitizen")
+                print("\nPath: ", end='', flush=True)
+                
+                custom_path = input().strip().strip('"')  # Remove quotes if present
+                
+                if not custom_path:
+                    print("\n[ERROR] No path provided.")
+                    sys.exit(1)
+                
+                print(f"\nValidating path: {custom_path}")
+                validated = self.game_detector.validate_custom_path(custom_path)
+                
+                if not validated:
+                    print("\n[ERROR] Invalid Star Citizen installation path!")
+                    print("   Could not find Game.log or typical Star Citizen files.")
+                    print("   Please check the path and try again.")
+                    sys.exit(1)
+                
+                print(f"[OK] Found {validated['display_name']}")
+                self.installations = [validated]
+                
+            except (EOFError, KeyboardInterrupt):
+                print("\n\nCancelled.")
+                sys.exit(1)
         
         # Store installations in config
         self.config_manager.store_installations(self.installations)

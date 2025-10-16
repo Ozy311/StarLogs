@@ -42,8 +42,8 @@ echo.
     --output-dir=dist ^
     --company-name=Ozy311 ^
     --product-name=StarLogs ^
-    --file-version=0.8.2 ^
-    --product-version=0.8.2 ^
+    --file-version=0.8.3 ^
+    --product-version=0.8.3 ^
     --file-description="Star Citizen Log Monitor and Analyzer" ^
     starlogs.py
 
