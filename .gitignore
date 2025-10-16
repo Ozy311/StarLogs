@@ -56,3 +56,13 @@ starlogs_debug.log
 build/
 dist/
 
+# Nuitka build directories
+starlogs.build/
+starlogs.dist/
+starlogs.onefile-build/
+nuitka-crash-report.xml
+
+# Compiled executable
+StarLogs.exe
+StarLogs-v*.zip
+
