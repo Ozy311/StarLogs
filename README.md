@@ -59,9 +59,49 @@ StarLogs is a comprehensive Star Citizen log parser that monitors your game logs
 
 ## Installation
 
+### ⚠️ Windows Defender Warning
+
+**IMPORTANT:** Windows Defender may flag the executable as a threat because it is **unsigned** (no code signing certificate). This is a **false positive**.
+
+**The executable is safe.** Source code is fully available in this repository for verification.
+
+**To run the executable:**
+
+1. **When Windows Defender blocks the download:**
+   - Click "Show more" → "Keep anyway"
+   - Or download from GitHub releases (already verified by GitHub's security)
+
+2. **When Windows Defender quarantines after extraction:**
+   - Open **Windows Security** → **Virus & threat protection** → **Protection history**
+   - Find the `StarLogs-v0.8.2.zip` or `StarLogs.exe` entry
+   - Click **Actions** → **Allow**
+   - Or click **Restore** to put it back
+
+3. **To permanently allow (recommended):**
+   - Open **Windows Security** → **Virus & threat protection** → **Manage settings**
+   - Scroll to **Exclusions** → **Add or remove exclusions**
+   - Click **Add an exclusion** → **Folder**
+   - Select the extracted `StarLogs` folder
+
+**Why is this happening?**
+- The executable is **unsigned** (code signing certificates cost $100-400/year)
+- It has network capabilities (Flask web server for dashboard)
+- It creates/modifies files (config file)
+- Windows flags new/unknown executables from small developers
+
+**Verification:**
+- Source code is open and auditable
+- Built with Nuitka (compiles Python to C)
+- No obfuscation or suspicious code
+- [VirusTotal scan results](#) (coming soon)
+
+**Alternative:** Run from Python source (see below) to avoid any warnings.
+
+---
+
 ### Requirements
 - **Windows 10/11** (Star Citizen is Windows-only)
-- **Python 3.8+**
+- **Python 3.8+** (only if running from source)
 - **Star Citizen** installed
 
 ### Quick Setup
