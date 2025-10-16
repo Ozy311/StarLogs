@@ -1,0 +1,343 @@
+/* Author: Ozy */
+/* Settings Tabs Styling */
+
+.settings-tabs {
+    display: flex;
+    border-bottom: 2px solid #54ADF7;
+    background: var(--bg-tertiary);
+    padding: 0;
+    margin: 0;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 15px 20px;
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: var(--text-secondary);
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.tab-btn:hover {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+.tab-btn.active {
+    color: #54ADF7;
+    border-bottom-color: #54ADF7;
+    background: var(--bg-primary);
+}
+
+.tab-content {
+    display: none;
+    padding: 20px;
+    animation: fadeIn 0.3s;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Games Tab Specific */
+.tab-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.tab-header h3 {
+    margin: 0;
+    color: #54ADF7;
+}
+
+.installations-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.installation-card {
+    background: var(--bg-tertiary);
+    border: 2px solid #54ADF7;
+    border-radius: 8px;
+    padding: 15px;
+    transition: all 0.2s;
+}
+
+.installation-card:hover {
+    box-shadow: 0 0 12px rgba(84, 173, 247, 0.3);
+    transform: translateX(2px);
+}
+
+.installation-card.active {
+    border-color: #F5AC1A;
+    box-shadow: 0 0 16px rgba(245, 172, 26, 0.4);
+}
+
+.installation-card.active .card-header::before {
+    content: '● ';
+    color: #F5AC1A;
+    font-size: 1.2rem;
+    margin-right: 8px;
+    text-shadow: 0 0 10px rgba(245, 172, 26, 0.8);
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.card-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #54ADF7;
+}
+
+.card-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    background: rgba(84, 173, 247, 0.15);
+    border: 1px solid #54ADF7;
+    color: #54ADF7;
+}
+
+.card-badge.monitoring {
+    background: rgba(245, 172, 26, 0.15);
+    border-color: #F5AC1A;
+    color: #F5AC1A;
+}
+
+.card-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.card-info {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.card-info strong {
+    color: var(--text-primary);
+    margin-right: 4px;
+}
+
+.card-path {
+    grid-column: 1 / -1;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    word-break: break-all;
+    padding: 8px;
+    background: var(--bg-primary);
+    border-radius: 4px;
+    border-left: 3px solid #54ADF7;
+}
+
+.card-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.card-actions button {
+    flex: 1;
+    padding: 8px 12px;
+    font-size: 0.9rem;
+}
+
+.btn-monitor {
+    background: rgba(245, 172, 26, 0.15);
+    border: 2px solid #F5AC1A;
+    color: #F5AC1A;
+}
+
+.btn-monitor:hover {
+    background: rgba(245, 172, 26, 0.25);
+    box-shadow: 0 0 12px rgba(245, 172, 26, 0.4);
+}
+
+.btn-remove {
+    background: rgba(255, 68, 68, 0.15);
+    border: 2px solid #ff4444;
+    color: #ff4444;
+}
+
+.btn-remove:hover {
+    background: rgba(255, 68, 68, 0.25);
+    box-shadow: 0 0 12px rgba(255, 68, 68, 0.4);
+}
+
+/* Custom Path Form */
+.custom-path-form {
+    background: var(--bg-tertiary);
+    border: 2px solid #54ADF7;
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 20px;
+}
+
+.custom-path-form h4 {
+    margin-top: 0;
+    color: #54ADF7;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.form-group input[type="text"] {
+    width: 100%;
+    padding: 10px;
+    background: var(--bg-primary);
+    border: 2px solid #54ADF7;
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    transition: all 0.2s;
+}
+
+.form-group input[type="text"]:focus {
+    outline: none;
+    border-color: #F5AC1A;
+    box-shadow: 0 0 12px rgba(245, 172, 26, 0.3);
+}
+
+.form-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.form-actions button {
+    flex: 1;
+}
+
+.validation-result {
+    margin-top: 15px;
+    padding: 12px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    display: none;
+}
+
+.validation-result.success {
+    display: block;
+    background: rgba(68, 255, 68, 0.15);
+    border: 2px solid #44ff44;
+    color: #44ff44;
+}
+
+.validation-result.error {
+    display: block;
+    background: rgba(255, 68, 68, 0.15);
+    border: 2px solid #ff4444;
+    color: #ff4444;
+}
+
+.loading-state {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+/* Button Styles */
+.btn-primary {
+    background: rgba(84, 173, 247, 0.15);
+    border: 2px solid #54ADF7;
+    color: #54ADF7;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.btn-primary:hover {
+    background: rgba(84, 173, 247, 0.25);
+    box-shadow: 0 0 12px rgba(84, 173, 247, 0.4);
+    transform: translateY(-1px);
+}
+
+.btn-secondary {
+    background: var(--bg-tertiary);
+    border: 2px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+    background: var(--bg-primary);
+    border-color: #54ADF7;
+}
+
+/* General Tab Styles */
+.setting-item {
+    margin-bottom: 20px;
+}
+
+.setting-item label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.setting-item input[type="number"],
+.setting-item select {
+    width: 100%;
+    padding: 10px;
+    background: var(--bg-primary);
+    border: 2px solid #54ADF7;
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    transition: all 0.2s;
+}
+
+.setting-item input[type="number"]:focus,
+.setting-item select:focus {
+    outline: none;
+    border-color: #F5AC1A;
+    box-shadow: 0 0 12px rgba(245, 172, 26, 0.3);
+}
+
+.setting-note {
+    display: block;
+    margin-top: 6px;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-style: italic;
+}
+
+#port-save-status {
+    margin-top: 10px;
+}
+

@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StarLogs - Star Citizen Log Monitor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='settings_tabs.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='history.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-top">
+            <div class="header-left">
+                <img src="/static/starlogs.png" alt="StarLogs" class="logo" onerror="this.style.display='none'">
+                <div class="title-group">
+                    <h1><span class="tagline">FOR THE CUBE!</span></h1>
+                    <div class="branding">Written by Ozy311 | CUBE Org</div>
+                </div>
+            </div>
+                <div class="header-right">
+                    <!-- Version Selector -->
+                    <div class="version-dropdown-compact" id="versionDropdown">
+                        <button class="version-selected-compact" id="versionSelected" title="Switch Game Environment">
+                            <span class="version-bullet">●</span>
+                            <span id="activeVersion">Loading...</span>
+                            <span class="dropdown-arrow">▼</span>
+                        </button>
+                        <div class="version-options" id="versionOptions" style="display: none;">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+                    <button id="history-btn" class="icon-btn" title="Historical Logs">
+                        <span class="history-icon">📜</span>
+                    </button>
+                    <button id="settings-btn" class="icon-btn" title="Settings">
+                        <span class="hamburger-icon">☰</span>
+                    </button>
+                </div>
+            </div>
+            <div class="status-bar">
+                <div class="status-item">
+                    <span class="status-label">Connection:</span>
+                    <span id="connection-status" class="status-value">Connecting...</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Log Path:</span>
+                    <span id="log-path" class="status-value">-</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Total Lines:</span>
+                    <span id="total-lines" class="status-value">0</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Game:</span>
+                    <span id="game-status" class="status-value">Not Running</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Event Summary Section -->
+        <div class="summary-section">
+            <div class="section-header" onclick="toggleSection('events')">
+                <h2>
+                    <span class="toggle-icon" id="events-toggle">▼</span>
+                    Event Summary
+                </h2>
+                <div class="summary-counts">
+                    <span class="count-badge pve" id="pve-count">0 PvE</span>
+                    <span class="count-badge pvp" id="pvp-count">0 PvP</span>
+                    <span class="count-badge death" id="death-count">0 Deaths</span>
+                    <span class="count-badge disconnect" id="disconnect-count">0 Stalls</span>
+                </div>
+            </div>
+            <div id="events-content" class="section-content">
+                <div class="controls">
+                    <button id="clear-events">Clear Events</button>
+                    <button id="reprocess-log">↻ Reprocess Log</button>
+                    <label>
+                        <input type="checkbox" id="show-pve" checked> PvE Kills
+                    </label>
+                    <label>
+                        <input type="checkbox" id="show-pvp" checked> PvP Kills
+                    </label>
+                    <label>
+                        <input type="checkbox" id="show-deaths" checked> Deaths
+                    </label>
+                    <label>
+                        <input type="checkbox" id="show-disconnects" checked> Stalls
+                    </label>
+                </div>
+                <div id="events-list" class="events-list">
+                    <div class="empty-state">No events yet. Waiting for game activity...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Resizable Divider -->
+        <div class="divider" id="resize-divider" title="Drag to resize">
+            <div class="divider-handle"></div>
+        </div>
+
+        <!-- Raw Log Section (Collapsible) -->
+        <div class="log-section">
+            <div class="section-header" onclick="toggleSection('logs')">
+                <h2>
+                    <span class="toggle-icon" id="logs-toggle">▼</span>
+                    Raw Log Feed
+                </h2>
+                <div class="log-controls-inline">
+                    <label>
+                        <input type="checkbox" id="auto-scroll" checked> Auto-scroll
+                    </label>
+                    <button id="clear-log">Clear</button>
+                </div>
+            </div>
+            <div id="logs-content" class="section-content">
+                <div id="log-output" class="log-output"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Menu Modal -->
+    <div id="settings-menu" class="modal">
+        <div class="modal-content settings-modal">
+            <div class="modal-header">
+                <h2>Settings</h2>
+                <button class="close-btn" onclick="closeSettings()">&times;</button>
+            </div>
+            
+            <!-- Settings Tabs -->
+            <div class="settings-tabs">
+                <button class="tab-btn active" data-tab="games">Games</button>
+                <button class="tab-btn" data-tab="general">General</button>
+                <button class="tab-btn" data-tab="about">About</button>
+            </div>
+            
+            <div class="modal-body">
+                <!-- Games Tab -->
+                <div id="games-tab" class="tab-content active">
+                    <div class="tab-header">
+                        <h3>Game Installations</h3>
+                        <button id="add-custom-path-btn" class="btn-primary">+ Add Custom Path</button>
+                    </div>
+                    
+                    <div id="installations-list" class="installations-list">
+                        <!-- Populated dynamically -->
+                        <div class="loading-state">Loading installations...</div>
+                    </div>
+                    
+                    <!-- Add Custom Path Form (hidden by default) -->
+                    <div id="custom-path-form" class="custom-path-form" style="display: none;">
+                        <h4>Add Custom Installation Path</h4>
+                        <div class="form-group">
+                            <label for="custom-path-input">Installation Path:</label>
+                            <input type="text" id="custom-path-input" placeholder="G:\Roberts Space Industries\StarCitizen\LIVE">
+                        </div>
+                        <div class="form-actions">
+                            <button id="validate-path-btn" class="btn-primary">Validate Path</button>
+                            <button id="cancel-custom-path-btn" class="btn-secondary">Cancel</button>
+                        </div>
+                        <div id="path-validation-result" class="validation-result"></div>
+                    </div>
+                </div>
+                
+                <!-- General Tab -->
+                <div id="general-tab" class="tab-content">
+                    <h3>General Settings</h3>
+                    <div class="setting-item">
+                        <label for="theme-select">Theme</label>
+                        <select id="theme-select">
+                            <option value="dark">Dark Mode</option>
+                            <option value="light">Light Mode</option>
+                        </select>
+                    </div>
+                    <div class="setting-item">
+                        <label for="port-input">Web Server Port</label>
+                        <input type="number" id="port-input" min="1024" max="65535" value="8080">
+                        <small class="setting-note">Changes require restarting StarLogs</small>
+                    </div>
+                    <div id="port-save-status" class="validation-result" style="display: none;"></div>
+                </div>
+                
+                <!-- About Tab -->
+                <div id="about-tab" class="tab-content">
+                    <div class="about-section">
+                        <h3>StarLogs <span id="about-version-inline">v1.0.0</span></h3>
+                        <p class="about-tagline">FOR THE CUBE!</p>
+                        <p><strong>Author:</strong> Ozy311</p>
+                        <p><strong>Organization:</strong> CUBE Org</p>
+                        <p class="about-description" id="about-description-inline">Star Citizen Log Parser and Event Tracker</p>
+                    </div>
+                    <div class="about-section">
+                        <h4>Features</h4>
+                        <ul id="about-features-inline"></ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- About Modal -->
+    <div id="about-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>About StarLogs</h2>
+                <button class="close-btn" onclick="closeAbout()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="about-section">
+                    <h3>StarLogs <span id="about-version">v1.0.0</span></h3>
+                    <p class="about-tagline">FOR THE CUBE!</p>
+                    <p><strong>Author:</strong> Ozy311</p>
+                    <p><strong>Organization:</strong> CUBE Org</p>
+                    <p class="about-description" id="about-description">Star Citizen Log Parser and Event Tracker</p>
+                </div>
+                <div class="about-section">
+                    <h4>Features</h4>
+                    <ul id="about-features"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Historical Logs Modal -->
+    <div id="history-modal" class="modal">
+        <div class="modal-content history-modal">
+            <div class="modal-header">
+                <h2>📜 Historical Logs</h2>
+                <button class="close-btn" onclick="closeHistory()">&times;</button>
+            </div>
+            
+            <div class="history-controls">
+                <label for="history-version-select">Game Environment:</label>
+                <select id="history-version-select">
+                    <option value="">Loading...</option>
+                </select>
+                <div class="history-sort-controls">
+                    <label for="history-sort-select">Sort by:</label>
+                    <select id="history-sort-select">
+                        <option value="date-desc">Date (Newest)</option>
+                        <option value="date-asc">Date (Oldest)</option>
+                        <option value="size-desc">Size (Largest)</option>
+                        <option value="size-asc">Size (Smallest)</option>
+                        <option value="name-asc">Name (A-Z)</option>
+                        <option value="name-desc">Name (Z-A)</option>
+                    </select>
+                </div>
+                <span id="history-count" class="history-count">0 logs found</span>
+            </div>
+            
+            <div class="modal-body">
+                <div id="history-list" class="history-list">
+                    <div class="loading-state">Select a game environment to view logs</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Log Analysis Modal -->
+    <div id="analysis-modal" class="modal">
+        <div class="modal-content analysis-modal">
+            <div class="modal-header">
+                <h2 id="analysis-title">Log Analysis</h2>
+                <button class="close-btn" onclick="closeAnalysis()">&times;</button>
+            </div>
+            
+            <div class="modal-body">
+                <div id="analysis-content" class="analysis-content">
+                    <div class="loading-state">Analyzing log file...</div>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button id="export-html-btn" class="btn-primary">Export HTML Report</button>
+                <button onclick="closeAnalysis()" class="btn-secondary">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
+
