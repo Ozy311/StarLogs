@@ -1,6 +1,6 @@
 # Author: Ozy
 """
-TUI Console for StarLogger with split-screen display.
+TUI Console for StarLogs with split-screen display.
 Inspired by btop - separate panels for web server logs and game logs.
 """
 
@@ -19,7 +19,7 @@ import msvcrt  # For Windows keyboard input
 
 
 class TUIConsole:
-    """Split-screen TUI console for StarLogger."""
+    """Split-screen TUI console for StarLogs."""
     
     def __init__(self, max_lines: int = 50, version: str = "Unknown", log_path: str = "", game_status: dict = None, config_manager=None):
         """

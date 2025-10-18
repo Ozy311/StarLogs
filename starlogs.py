@@ -36,7 +36,7 @@ class StarLogs:
     
     def __init__(self, use_tui: bool = True):
         """
-        Initialize StarLogger application.
+        Initialize StarLogs application.
         
         Args:
             use_tui: Whether to use TUI mode (default: True)

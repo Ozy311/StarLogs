@@ -1,7 +1,7 @@
-// StarLogger - Enhanced UI with event timeline
+// StarLogs - Enhanced UI with event timeline
 // Author: Ozy311
 
-class StarLoggerApp {
+class StarLogsApp {
     constructor() {
         this.eventSource = null;
         this.autoScroll = true;
@@ -1543,6 +1543,6 @@ function closeAnalysis() {
 // Initialize app
 let app;
 document.addEventListener('DOMContentLoaded', () => {
-    app = new StarLoggerApp();
+    app = new StarLogsApp();
 });
 
