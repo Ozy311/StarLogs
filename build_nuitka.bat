@@ -24,7 +24,7 @@ echo Starting Nuitka compilation...
 echo This will take 5-10 minutes on first build...
 echo.
 
-"C:\Program Files\Python313\python.exe" -m nuitka ^
+"venv\Scripts\python.exe" -m nuitka ^
     --standalone ^
     --assume-yes-for-downloads ^
     --windows-console-mode=force ^
