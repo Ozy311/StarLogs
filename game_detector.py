@@ -15,7 +15,7 @@ class GameDetector:
     """Detects Star Citizen game installations and available versions."""
     
     DEFAULT_INSTALL_PATH = r"C:\Program Files\Roberts Space Industries\StarCitizen"
-    KNOWN_VERSIONS = ["LIVE", "PTU", "TECHPREVIEW", "EPTU"]
+    KNOWN_VERSIONS = ["LIVE", "PTU", "TECHPREVIEW", "EPTU", "HOTFIX"]
     RSI_FOLDER_NAME = "Roberts Space Industries"
     
     def __init__(self, custom_path: Optional[str] = None):
