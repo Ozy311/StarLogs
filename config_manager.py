@@ -1,6 +1,6 @@
 # Author: Ozy
 """
-Configuration manager for StarLogger.
+Configuration manager for StarLogs.
 Handles saving and loading user preferences.
 """
 

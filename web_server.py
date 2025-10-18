@@ -1,6 +1,6 @@
 # Author: Ozy
 """
-Flask web server for StarLogger.
+Flask web server for StarLogs.
 Serves dashboard and provides real-time log streaming via SSE.
 """
 
@@ -14,7 +14,7 @@ from version import VERSION_INFO, get_about_info
 
 
 class WebServer:
-    """Flask-based web server for StarLogger dashboard."""
+    """Flask-based web server for StarLogs dashboard."""
     
     def __init__(self, port: int = 8080):
         """Initialize the web server."""
