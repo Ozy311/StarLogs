@@ -525,16 +525,22 @@ class WebServer:
         Args:
             threaded: Whether to run in threaded mode
         """
-        # Keep Flask logs at INFO level so they show in TUI
+        # Disable Flask's werkzeug logger output
         import logging
         import os
         
+        # Suppress werkzeug logging entirely
         log = logging.getLogger('werkzeug')
-        log.setLevel(logging.INFO)  # Changed from ERROR to INFO
+        log.setLevel(logging.CRITICAL)
+        log.disabled = True
         
-        # Suppress Flask startup banner only
-        cli = os.environ.get('FLASK_RUN_FROM_CLI')
-        os.environ['FLASK_RUN_FROM_CLI'] = 'false'
+        # Also suppress Flask app logger
+        app_log = logging.getLogger('flask.app')
+        app_log.setLevel(logging.CRITICAL)
+        app_log.disabled = True
+        
+        # Suppress the startup banner
+        os.environ['FLASK_ENV'] = 'production'
         
         self.app.run(
             host='127.0.0.1',
@@ -549,7 +555,7 @@ class WebServer:
             os.environ['FLASK_RUN_FROM_CLI'] = cli
         else:
             os.environ.pop('FLASK_RUN_FROM_CLI', None)
-    
+
     def start_in_thread(self) -> threading.Thread:
         """
         Start the server in a background thread.
