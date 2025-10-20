@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ version }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='settings_tabs.css') }}?v={{ version }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='history.css') }}?v={{ version }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     <div class="container">
@@ -44,10 +45,48 @@
                     <button id="settings-btn" class="icon-btn" title="Settings">
                         <span class="hamburger-icon">☰</span>
                     </button>
+                    
+                    <!-- Vertical Icon Stack (WiFi, Theme, About) -->
+                    <div class="header-icon-stack">
+                        <button id="connection-btn" class="header-icon-btn wifi-btn" title="Server Connection Status: Connecting...">
+                            <i class="fas fa-wifi"></i>
+                        </button>
+                        <button id="theme-toggle-btn" class="header-icon-btn theme-btn" title="Dark Mode (click to toggle to Light Mode)">
+                            <i class="fas fa-sun"></i>
+                        </button>
+                        <button id="about-btn" class="header-icon-btn about-btn" title="About StarLogs" data-tooltip="About">
+                            <i class="fas fa-circle-question"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- Mobile Hamburger Menu -->
+                    <div style="position: relative;">
+                        <button id="mobile-menu-toggle" class="mobile-menu-toggle" title="Menu">
+                            <i class="fas fa-bars"></i>
+                        </button>
+                        <div id="mobile-menu-flyout" class="mobile-menu-flyout">
+                            <button class="mobile-menu-item" id="mobile-version-btn">
+                                <i class="fas fa-circle"></i>
+                                <span id="mobile-version-text">LIVE</span>
+                            </button>
+                            <button class="mobile-menu-item" id="mobile-history-btn">
+                                <i class="fas fa-book"></i>
+                                <span>History</span>
+                            </button>
+                            <button class="mobile-menu-item" id="mobile-export-btn">
+                                <i class="fas fa-download"></i>
+                                <span>Export</span>
+                            </button>
+                            <button class="mobile-menu-item" id="mobile-settings-btn">
+                                <i class="fas fa-cog"></i>
+                                <span>Settings</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="status-bar">
-                <div class="status-item">
+                <div class="status-item" id="connection-status-item" style="display: none;">
                     <span class="status-label">Connection:</span>
                     <span id="connection-status" class="status-value">Connecting...</span>
                 </div>
@@ -197,6 +236,16 @@
                 <!-- About Tab -->
                 <div id="about-tab" class="tab-content">
                     <div class="about-section">
+                        <h4>Support StarLogs</h4>
+                        <p>If you enjoy StarLogs, consider supporting development:</p>
+                        <p style="margin-top: 10px;">
+                            <a href="https://paypal.me/Ozy311" target="_blank" style="color: #54ADF7; text-decoration: none; font-weight: 500;">💝 Donate via PayPal</a>
+                        </p>
+                        <p style="margin-top: 8px; color: #a0a0a0; font-size: 0.9rem;">
+                            🎉 Patreon support coming soon!
+                        </p>
+                    </div>
+                    <div class="about-section">
                         <h3>StarLogs <span id="about-version-inline">v1.0.0</span></h3>
                         <p class="about-tagline">FOR THE CUBE!</p>
                         <p><strong>Author:</strong> Ozy311</p>
@@ -207,29 +256,6 @@
                         <h4>Features</h4>
                         <ul id="about-features-inline"></ul>
                     </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- About Modal -->
-    <div id="about-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>About StarLogs</h2>
-                <button class="close-btn" onclick="closeAbout()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="about-section">
-                    <h3>StarLogs <span id="about-version">v1.0.0</span></h3>
-                    <p class="about-tagline">FOR THE CUBE!</p>
-                    <p><strong>Author:</strong> Ozy311</p>
-                    <p><strong>Organization:</strong> CUBE Org</p>
-                    <p class="about-description" id="about-description">Star Citizen Log Parser and Event Tracker</p>
-                </div>
-                <div class="about-section">
-                    <h4>Features</h4>
-                    <ul id="about-features"></ul>
                 </div>
             </div>
         </div>
