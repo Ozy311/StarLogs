@@ -81,6 +81,8 @@
                         <span class="badges-label">Filters</span>
                     </button>
                     <button id="invert-badges-btn" class="btn-invert" title="Invert all filter selections">⇅ Invert</button>
+                    <button id="clear-events" class="btn-action" title="Clear all events">Clear</button>
+                    <button id="reprocess-log" class="btn-action" title="Reprocess log">↻ Reprocess</button>
                 </div>
                 <div id="badges-content" class="summary-counts" onclick="event.stopPropagation()">
                     <span class="count-badge pve active" id="pve-count" data-filter="pve" title="Click to hide/show">0 Ship PvE</span>
@@ -97,10 +99,6 @@
                 </div>
             </div>
             <div id="events-content" class="section-content">
-                <div class="controls">
-                    <button id="clear-events">Clear Events</button>
-                    <button id="reprocess-log">↻ Reprocess Log</button>
-                </div>
                 <div id="events-list" class="events-list">
                     <div class="empty-state">No events yet. Waiting for game activity...</div>
                 </div>
