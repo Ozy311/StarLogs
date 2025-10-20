@@ -355,6 +355,101 @@ class StarLogsApp {
                 this.aboutModal.classList.remove('show');
             }
         });
+        
+        // New Header Icon Button Listeners
+        
+        // Connection Status Button (WiFi Icon)
+        const connectionBtn = document.getElementById('connection-btn');
+        if (connectionBtn) {
+            connectionBtn.addEventListener('click', () => {
+                const status = this.connectionStatus.textContent;
+                alert(`Server Connection Status: ${status}`);
+            });
+        }
+        
+        // Theme Toggle Button
+        const themeToggleBtn = document.getElementById('theme-toggle-btn');
+        if (themeToggleBtn) {
+            themeToggleBtn.addEventListener('click', () => {
+                this.toggleTheme();
+            });
+        }
+        
+        // About Button
+        const aboutBtn = document.getElementById('about-btn');
+        if (aboutBtn) {
+            aboutBtn.addEventListener('click', () => {
+                this.openAboutModal();
+            });
+        }
+        
+        // Mobile Menu Toggle
+        const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
+        const mobileMenuFlyout = document.getElementById('mobile-menu-flyout');
+        if (mobileMenuToggle && mobileMenuFlyout) {
+            mobileMenuToggle.addEventListener('click', () => {
+                mobileMenuFlyout.classList.toggle('show');
+            });
+            
+            // Close menu when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!mobileMenuToggle.contains(e.target) && !mobileMenuFlyout.contains(e.target)) {
+                    mobileMenuFlyout.classList.remove('show');
+                }
+            });
+        }
+        
+        // Mobile History Button
+        const mobileHistoryBtn = document.getElementById('mobile-history-btn');
+        if (mobileHistoryBtn) {
+            mobileHistoryBtn.addEventListener('click', () => {
+                if (mobileMenuFlyout) mobileMenuFlyout.classList.remove('show');
+                this.openHistoryBrowser();
+            });
+        }
+        
+        // Mobile Export Button
+        const mobileExportBtn = document.getElementById('mobile-export-btn');
+        if (mobileExportBtn) {
+            mobileExportBtn.addEventListener('click', async () => {
+                if (mobileMenuFlyout) mobileMenuFlyout.classList.remove('show');
+                try {
+                    const response = await fetch('/api/log_file');
+                    const data = await response.json();
+                    
+                    if (data.log_file) {
+                        await this.exportLogHTML(data.log_file, 'Current Game Log');
+                    } else {
+                        alert('No active game log found');
+                    }
+                } catch (error) {
+                    console.error('Error exporting current log:', error);
+                    alert('Error exporting current log');
+                }
+            });
+        }
+        
+        // Mobile Version Button - Show alert with version info
+        const mobileVersionBtn = document.getElementById('mobile-version-btn');
+        if (mobileVersionBtn) {
+            mobileVersionBtn.addEventListener('click', () => {
+                if (mobileMenuFlyout) mobileMenuFlyout.classList.remove('show');
+                // You can expand this to show version selector later
+                alert('Version switching on mobile coming soon');
+            });
+        }
+        
+        // Mobile Settings Button
+        const mobileSettingsBtn = document.getElementById('mobile-settings-btn');
+        if (mobileSettingsBtn) {
+            mobileSettingsBtn.addEventListener('click', () => {
+                if (mobileMenuFlyout) mobileMenuFlyout.classList.remove('show');
+                this.settingsMenu.classList.add('show');
+                this.loadGameInstallations();
+                this.loadAboutInfo();
+                this.loadGeneralSettings();
+            });
+        }
     }
     
     loadTheme() {
@@ -1918,6 +2013,19 @@ class StarLogsApp {
             }
         } catch (e) {
             console.error('Error saving badge visibility:', e);
+        }
+    }
+    
+    openAboutModal() {
+        // Open the about modal and load content
+        if (this.settingsMenu) {
+            this.settingsMenu.classList.add('show');
+            this.loadAboutInfo(); // Load about info when opening via ? button
+            // Switch to about tab if it exists
+            const tabBtn = document.querySelector('[data-tab="about"]');
+            if (tabBtn) {
+                tabBtn.click();
+            }
         }
     }
 }
