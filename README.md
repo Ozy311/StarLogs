@@ -188,27 +188,69 @@ The TUI console shows:
 - Version selector dropdown (switch between LIVE/PTU/EPTU)
 - Settings button (⚙️)
 - History button (📜)
+- Export button (💾)
+- **[NEW] WiFi Connection Indicator** - Real-time server status (🟢 Connected / 🔴 Disconnected / 🟡 Connecting)
+- **[NEW] Theme Toggle** - Switch between Dark and Light modes
+- **[NEW] About Button** - Opens unified About page with donation link
+- **[NEW] Mobile Hamburger Menu** - Responsive navigation for small screens
 
-**Statistics Panel:**
-- Real-time counters for PvE kills, PvP kills, deaths, actor stalls, disconnects
-- Total log lines processed
-- Color-coded stats (green for kills, red for deaths/stalls, yellow for disconnects)
+**Event Summary Section:**
+- **[NEW] Filter Toggle** - Collapsible "Filters" button to hide/show filter badges
+- **[NEW] Invert Button** - Toggle all filter selections with single click
+- Clear Events button
+- Reprocess Log button
+- Event filtering checkboxes for all event types (including vehicle destructions, FPS combat, suicides)
+- Statistics panel with real-time counters for:
+  - Ship PvE/PvP kills
+  - Deaths
+  - FPS PvE/PvP kills and FPS deaths
+  - Soft Deaths and Full Destructions
+  - Disconnects and Actor Stalls
+  - Suicides and Corpses
 
 **Event List:**
 - Live-updating event feed (newest first)
-- Click ▼ on events to expand and see detailed information:
+- Click ▼ on section header to fully collapse/expand widget (frees up space)
+- Click individual badges to hide/show specific event types
+- Events now include:
   - 📍 Ship/Location (e.g., "890 Jump")
   - 🎯 Weapon & class (e.g., "Ballistic Cannon (S4)")
   - 💥 Damage type (e.g., "Explosion", "Crash")
   - 🧭 Attack direction (e.g., "from Behind", "from Above")
-  - 👥 Crew members (click (+N crew) to expand)
+  - 👥 Crew members (click (+N crew) to expand crew details)
   - Victim/Killer IDs
-- Event filtering checkboxes (PvE, PvP, Deaths, Disconnects, Soft Deaths, Destructions)
-- Clear events button
+
+**Raw Log Viewer:**
+- **[NEW] Wrap Text Toggle** - Enable/disable text wrapping for long log lines
+- Auto-scroll checkbox (remembers preference)
+- Clear button
+- Live log output with auto-scroll to newest entries
 
 **Controls:**
+- **[NEW] Full Widget Collapse** - Clicking section headers collapses entire widget to save space
 - **Reprocess Log** - Reparse entire current log file
 - **Auto-scroll** - Toggle automatic scrolling for events/logs
+- **[NEW] Wrap Text** - Toggle text wrapping in Raw Log Viewer
+- **Preferences Persist** - All UI preferences saved to browser localStorage
+
+#### Mobile Responsiveness
+
+**Responsive Breakpoints:**
+- **Desktop (> 900px):** All buttons visible, full layout
+- **Tablet/Mobile (≤ 900px):** 
+  - Header buttons hidden
+  - Version selector moved to hamburger menu
+  - History/Export buttons moved to hamburger menu
+  - Settings button moved to hamburger menu
+  - Connection/Theme/About icons remain on far right until ultra-mobile
+  - Hamburger menu ☰ appears with flyout options
+
+**Mobile Menu Features:**
+- Version selector (with current version display)
+- History browser
+- Export current log
+- Settings
+- Clean, touch-friendly layout with icons
 
 #### Settings Menu
 
@@ -219,15 +261,17 @@ The TUI console shows:
 - Remove custom paths
 
 **General Tab:**
-- Theme selector (Dark/Light)
+- **[NEW] Theme selector** (Dark/Light mode) - Also accessible from header theme toggle button
 - Web server port configuration
 - Restart warning for port changes
+- **[NEW] Log poll interval** (0.1-10.0 seconds) - Requires restart
 
 **About Tab:**
+- **[NEW] Donation section** with PayPal link (https://paypal.me/Ozy311)
 - Version information
 - Author and organization
 - Feature list
-- License
+- License information
 
 #### Historical Log Browser
 
@@ -238,7 +282,7 @@ The TUI console shows:
 - Sort by date, size, or name
 - Quick analysis showing event counts
 - View full analysis with:
-  - Event statistics
+  - Event statistics (including vehicle destructions, FPS combat)
   - Session uptime
   - System information
   - Build details
@@ -248,6 +292,8 @@ The TUI console shows:
 **HTML Exports:**
 - Self-contained (all styles embedded)
 - Dark theme matching main UI
+- **[NEW] Vehicle destruction events** with crew details
+- **[NEW] FPS combat events** with weapon info
 - Includes all event details with icons
 - Perfect for sharing sessions with friends
 
@@ -294,25 +340,30 @@ The TUI console shows:
 | **FPS Death** | Player was killed on foot | Killer, damage type, location |
 | **Soft Death** | Vehicle disabled/crippled (0→1) | Ship name, attacker, damage type, crew count |
 | **Destruction** | Vehicle fully destroyed (→2) | Ship name, attacker, damage type, crew count |
+| **Suicide** | Player killed themselves | Player name, damage type, timestamp |
+| **Corpse** | Player corpse state (death confirmation) | Player name, corpse status |
 | **Actor Stall** | Game freeze/crash | Player name, stall type, duration |
 | **Disconnect** | Network disconnect | Timestamp, reason |
 
 **Vehicle Destruction System:**
-- **Soft Death (Level 0→1)** - Ship disabled but salvageable, orange indicator
-- **Full Destruction (Level 1→2 or 0→2)** - Ship exploded and gone, red indicator
-- **Crew Correlation** - Automatically links crew deaths to vehicle destructions within 200ms
-- **Expandable Crew Details** - Click (+N crew) to see individual crew member names
+- **Soft Death (Level 0→1)** - Ship disabled but salvageable, orange indicator, crew can potentially survive
+- **Full Destruction (Level 1→2 or 0→2)** - Ship exploded and gone, red indicator, crew kills recorded
+- **Automatic Crew Correlation** - Links crew member deaths to vehicle destruction events within 200ms timestamp window
+- **Vehicle ID Extraction** - Converts vehicle IDs (e.g., "ANVL_Paladin_6763231335005") to ship names
+- **Expandable Crew Details** - Click "(+N crew)" in event card to see individual crew member names
 - **Damage Type Color Coding:**
   - Combat (red) - Ship-to-ship weapon damage
-  - Collision (orange) - Ship collisions
+  - Collision (orange) - Ship collisions or ramming
   - SelfDestruct (purple) - Player-initiated self-destruct
-  - GameRules (gray) - Server cleanup/despawn
+  - GameRules (gray) - Server cleanup/despawn/timeout
+- **PvP/PvE Classification** - Distinguishes player-caused destructions from NPC/environment
 
 **FPS Combat Tracking:**
-- **FPS PvE (Cyan)** - On-foot kills of NPCs, distinct from vehicle combat
+- **FPS PvE (Cyan)** - On-foot kills of NPCs, distinct from vehicle PvE
 - **FPS PvP (Purple)** - On-foot player kills, separate counter from vehicle PvP
-- **FPS Death (Yellow)** - Deaths while on foot, with damage type tracking
+- **FPS Death (Yellow)** - Deaths while on foot (including suicides)
 - **Weapon Details** - Captures weapon names and classifications when available
+- **Location Tracking** - Records zone/location for on-foot combat
 - **Filterable** - Independent filters for each FPS event type
 
 **Enhanced Details (when available):**
@@ -463,35 +514,62 @@ StarLogs/
 
 ### Building Executable (Windows)
 
-StarLogs uses **Nuitka** instead of PyInstaller to avoid antivirus false positives and produce more reliable executables.
+StarLogs uses **Nuitka** as the primary build tool (recommended for releases), with **PyInstaller** available as an alternative for single-executable preference.
 
-**Requirements:**
+**Why two build options?**
+- **Nuitka (Primary):** Compiles Python to native C code, fewer antivirus false positives vs PyInstaller, better performance
+- **PyInstaller (Alternative):** Produces single `.exe` file (no extracted dependencies), but higher false positive rates on unsigned executables
+
+#### Requirements
+
+**For Nuitka:**
 - Python 3.13
 - Visual Studio Build Tools (C++ compiler)
 - Nuitka: `pip install nuitka`
 
-**Build Process:**
+**For PyInstaller:**
+- Python 3.8+
+- PyInstaller: `pip install pyinstaller`
+
+#### Build with Nuitka (Recommended)
 
 ```bash
 # Run the Nuitka build script
 build_nuitka.bat
 
 # Output directory structure
-dist\starlogs.dist\
+dist\nuitka\
   ├── StarLogs.exe       # Main executable
   ├── *.dll              # Required libraries
   ├── static\            # Web assets
   └── templates\         # HTML templates
 ```
 
-**Why Nuitka?**
+**Distribution:** Package the entire `dist\nuitka\` folder. Users can run `StarLogs.exe` directly. Config saves alongside the executable.
+
+#### Build with PyInstaller (Alternative)
+
+```bash
+# Run the PyInstaller build script
+build_pyinstaller.bat
+
+# Output
+dist\pyinstaller\StarLogs.exe  # Single executable (~80MB, self-extracting)
+```
+
+**Distribution:** Single file, no dependencies to package. **However, note:**
+- Unsigned PyInstaller executables often trigger higher antivirus false positive rates
+- Users may see "Windows Defender" warnings more frequently
+- Recommend shipping Nuitka build for public releases
+- PyInstaller useful for custom/private builds
+
+#### Why Nuitka?
+
 - Compiles Python to native C code (faster execution)
 - Significantly fewer antivirus false positives vs PyInstaller
 - Better compatibility with Rich TUI library
-- More stable with onefile extractions
-
-**Distribution:**
-Package the entire `starlogs.dist` folder. Users can run `StarLogs.exe` directly. Config saves to the same directory as the executable (`starlogs_config.json`).
+- More stable with onfile extractions
+- Recommended for public releases
 
 ### Contributing
 
@@ -541,57 +619,62 @@ Package the entire `starlogs.dist` folder. Users can run `StarLogs.exe` directly
 
 ---
 
+## Known Issues
+
+### Version 0.9.0 Focus Areas
+
+The following items are known and under active investigation for the next release (v0.9.1):
+
+1. **NPC Classification (NEW in 4.3.2+)** - Some newly added NPCs in Star Citizen 4.3.2 and later are not yet recognized by the pattern database, potentially causing them to be flagged as PvP kills instead of PvE.
+   - **Workaround:** Check event details for killer/victim names; report unrecognized NPCs on GitHub
+   - **Status:** Pattern database being updated for latest NPCs
+
+2. **Event Parser Edge Cases** - Some legitimate combat events are occasionally missed due to minor log format variations or regex pattern mismatches.
+   - **Status:** Refining regex patterns for comprehensive log coverage
+
+### Troubleshooting
+
+#### "Port already in use" error
+1. Another StarLogs instance is running
+2. Use `netstat -ano | findstr :8080` (Windows) to find process
+3. Terminate the process or choose a different port in Settings
+
+#### Connection shows "Disconnected"
+1. Check that StarLogs server is running (check TUI console)
+2. Verify port is correct (default: 3111)
+3. Check Windows Firewall isn't blocking the connection
+4. Try restarting refreshing browser
+5. Restart StarLogs server
+
+#### Events not showing
+1. Ensure Star Citizen is running
+2. Check correct version is selected (LIVE vs PTU)
+3. Click "Reprocess Log" button
+4. Verify log file exists: `StarCitizen\LIVE\Game.log`
+5. Check Connection indicator shows "Connected" (green)
+
+#### Web dashboard not loading
+1. Check browser console for errors
+2. Verify web server started (look for "Running on http://...")
+3. Try a different browser
+4. Clear browser cache (`Ctrl+Shift+Delete`)
+
+---
+
 ## Changelog
 
-### Version 0.9.0 (2025-10-19) - Vehicle Destruction System
+### Version 0.9.0 (2025-10-19) - Vehicle Destruction System & UI Redesign
 
-**New Features:**
-- ✨ **Vehicle Destruction Tracking** - Full support for ship destruction events
-  - Soft Death detection (Level 0→1) - Ships disabled/crippled but salvageable
-  - Full Destruction detection (Level 1→2 or 0→2) - Ships exploded and destroyed
-  - Ship name extraction from vehicle IDs (e.g., "ANVL_Paladin" → "Paladin")
-  - PvP/PvE classification for vehicle destructions
-- 🔗 **Automatic Crew Kill Correlation** - Links crew deaths to vehicle destructions
-  - 200ms timestamp proximity matching
-  - Vehicle ID correlation from zone fields
-  - Real-time crew count and names displayed on destruction events
-- 🎨 **Damage Type Color Coding**
-  - Combat: Red badge - Ship-to-ship weapon damage
-  - Collision: Orange badge - Ship collisions
-  - SelfDestruct: Purple badge - Player-initiated self-destruct
-  - GameRules: Gray badge - Server cleanup/despawn
-- 👥 **Expandable Crew Details**
-  - Click "(+N crew)" indicator to expand/collapse crew list
-  - Individual crew member names with icons
-  - Clean, inline expansion within event card
-- 📊 **Enhanced Statistics**
-  - Separate counters for Soft Deaths and Full Destructions
-  - Damage type breakdown (Combat, Collision, SelfDestruct, GameRules)
-  - Updated dashboard with orange/red color coding
-- 🎛️ **New Filter Options**
-  - Filter checkboxes for Soft Deaths
-  - Filter checkboxes for Full Destructions
-  - Independent control of vehicle destruction events
+See [CHANGELOG_0.9.0.md](.cursor/docs/CHANGELOG_0.9.0.md) for comprehensive v0.9.0 release notes including all features, technical details, and upgrade instructions.
 
-**Technical Improvements:**
-- Added `VEHICLE_DESTROY_SOFT` and `VEHICLE_DESTROY_FULL` event types
-- Implemented vehicle destruction regex pattern for log parsing
-- Added ship name extraction logic for 15+ manufacturers
-- Updated web server with correlation tracking and stats
-- Enhanced offline analyzer with vehicle destruction support
-- Updated HTML report generator with new event types
-- Added CSS styling for vehicle destruction events and badges
-
-**Files Modified:**
-- `event_parser.py` - New event types and parsing logic (~120 lines)
-- `web_server.py` - Correlation tracking and stats (~95 lines)
-- `offline_analyzer.py` - Offline analysis support (~75 lines)
-- `html_generator.py` - Report generation updates (~65 lines)
-- `static/app.js` - Frontend display logic (~140 lines)
-- `static/style.css` - Event styling and colors (~60 lines)
-- `templates/index.html` - Counter badges and filters (~8 lines)
-
-**Total:** ~563 lines of new code
+**Highlights:**
+- ✨ Vehicle destruction tracking (Soft Death & Full Destruction)
+- 🔗 Automatic crew kill correlation
+- 🎨 New header icons (WiFi, Theme, About)
+- 📱 Mobile responsive hamburger menu
+- 🎯 Enhanced FPS combat tracking
+- 💾 Filter preferences persistence
+- ⚡ Performance optimizations with polling-based log monitoring
 
 ### Version 0.8.2 (Previous)
 - Event detail enhancements
