@@ -1573,8 +1573,14 @@ class StarLogsApp {
             const response = await fetch('/api/config');
             const data = await response.json();
             
+            console.log('[DEBUG] Received config data:', data);
+            console.log('[DEBUG] web_port value:', data.web_port);
+            
             if (data.web_port) {
+                console.log('[DEBUG] Setting port input to:', data.web_port);
                 this.portInput.value = data.web_port;
+            } else {
+                console.warn('[DEBUG] No web_port in config data');
             }
         } catch (error) {
             console.error('Failed to load settings:', error);
