@@ -403,10 +403,10 @@ header h1 .tagline {
 
 .badges-header {
     display: flex;
-    gap: 15px;
+    gap: 10px;
     align-items: center;
     flex-wrap: wrap;
-    padding: 10px;
+    padding: 8px;
     background: var(--bg-tertiary);
     border-radius: 6px;
     margin-bottom: 10px;
@@ -415,10 +415,10 @@ header h1 .tagline {
 .badges-toggle {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 8px 16px;
+    gap: 4px;
+    padding: 6px 12px;
     border-radius: 6px;
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     font-weight: 600;
     background: var(--bg-secondary);
     border: 1px solid var(--accent-blue);
@@ -430,17 +430,17 @@ header h1 .tagline {
 
 .badges-toggle:hover {
     background: var(--bg-primary);
-    box-shadow: 0 0 12px rgba(84, 173, 247, 0.4);
-    transform: scale(1.05);
+    border-color: var(--accent-blue);
+    transform: translateY(-1px);
 }
 
 .badges-toggle:active {
-    transform: scale(0.95);
+    transform: translateY(0);
 }
 
 .badges-toggle-icon {
     display: inline-block;
-    width: 16px;
+    width: 14px;
     transition: transform 0.3s;
 }
 
@@ -463,10 +463,10 @@ header h1 .tagline {
 .btn-invert {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 8px 16px;
+    gap: 4px;
+    padding: 6px 12px;
     border-radius: 6px;
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     font-weight: 600;
     background: var(--bg-secondary);
     border: 1px solid var(--accent-blue);
@@ -478,38 +478,64 @@ header h1 .tagline {
 
 .btn-invert:hover {
     background: var(--bg-primary);
-    box-shadow: 0 0 12px rgba(84, 173, 247, 0.4);
-    transform: scale(1.05);
+    border-color: var(--accent-green);
+    transform: translateY(-1px);
 }
 
 .btn-invert:active {
-    transform: scale(0.95);
+    transform: translateY(0);
+}
+
+.btn-action {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: var(--bg-secondary);
+    border: 1px solid var(--accent-blue);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.btn-action:hover {
+    background: var(--bg-primary);
+    border-color: var(--accent-orange);
+    transform: translateY(-1px);
+}
+
+.btn-action:active {
+    transform: translateY(0);
 }
 
 .count-badge {
-    padding: 5px 12px;
-    border-radius: 12px;
-    font-size: 0.85rem;
-    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    font-weight: 700;
     background: var(--bg-secondary);
     border: 2px solid;
     cursor: pointer;
-    transition: all 0.2s ease;
-    opacity: 0.5;
+    transition: all 0.15s ease;
+    opacity: 0.4;
     white-space: nowrap;
     flex: 0 1 auto;
     min-width: fit-content;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .count-badge.active {
     opacity: 1;
-    transform: scale(1.05);
-    box-shadow: 0 0 15px currentColor;
+    font-weight: 700;
+    border-width: 2px;
+    transform: none;
 }
 
 .count-badge:hover {
-    transform: scale(1.1);
-    box-shadow: 0 0 20px currentColor;
+    transform: scale(1.08);
+    border-width: 2px;
 }
 
 .count-badge.pve {
