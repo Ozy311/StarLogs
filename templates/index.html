@@ -3,11 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>StarLogs - Star Citizen Log Monitor</title>
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='settings_tabs.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='history.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ version }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='settings_tabs.css') }}?v={{ version }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='history.css') }}?v={{ version }}">
 </head>
 <body>
     <div class="container">
@@ -17,7 +20,7 @@
                 <img src="/static/starlogs.png" alt="StarLogs" class="logo" onerror="this.style.display='none'">
                 <div class="title-group">
                     <h1><span class="tagline">FOR THE CUBE!</span></h1>
-                    <div class="branding">Written by Ozy311 | CUBE Org</div>
+                    <div class="branding">StarLogs v{{ version }} | Written by Ozy311 | CUBE Org</div>
                 </div>
             </div>
                 <div class="header-right">
@@ -34,6 +37,9 @@
                     </div>
                     <button id="history-btn" class="icon-btn" title="Historical Logs">
                         <span class="history-icon">📜</span>
+                    </button>
+                    <button id="export-current-btn" class="icon-btn" title="Export Current Log to HTML">
+                        <span class="export-icon">💾</span>
                     </button>
                     <button id="settings-btn" class="icon-btn" title="Settings">
                         <span class="hamburger-icon">☰</span>
@@ -67,29 +73,24 @@
                     <span class="toggle-icon" id="events-toggle">▼</span>
                     Event Summary
                 </h2>
-                <div class="summary-counts">
-                    <span class="count-badge pve" id="pve-count">0 PvE</span>
-                    <span class="count-badge pvp" id="pvp-count">0 PvP</span>
-                    <span class="count-badge death" id="death-count">0 Deaths</span>
-                    <span class="count-badge disconnect" id="disconnect-count">0 Stalls</span>
+                <div class="summary-counts" onclick="event.stopPropagation()">
+                    <span class="count-badge pve active" id="pve-count" data-filter="pve">0 Ship PvE</span>
+                    <span class="count-badge pvp active" id="pvp-count" data-filter="pvp">0 Ship PvP</span>
+                    <span class="count-badge death active" id="death-count" data-filter="deaths">0 Deaths</span>
+                    <span class="count-badge fps-pve active" id="fps-pve-count" data-filter="fps_pve">0 FPS PvE</span>
+                    <span class="count-badge fps-pvp active" id="fps-pvp-count" data-filter="fps_pvp">0 FPS PvP</span>
+                    <span class="count-badge fps-death active" id="fps-death-count" data-filter="fps_death">0 FPS Death</span>
+                    <span class="count-badge suicide active" id="suicide-count" data-filter="suicide">0 Suicides</span>
+                    <span class="count-badge corpse active" id="corpse-count" data-filter="corpse">0 Corpses</span>
+                    <span class="count-badge disconnect active" id="disconnect-count" data-filter="disconnects">0 Stalls</span>
+                    <span class="count-badge vehicle-soft active" id="vehicle-soft-count" data-filter="vehicle_soft">0 Soft</span>
+                    <span class="count-badge vehicle-full active" id="vehicle-full-count" data-filter="vehicle_full">0 Full</span>
                 </div>
             </div>
             <div id="events-content" class="section-content">
                 <div class="controls">
                     <button id="clear-events">Clear Events</button>
                     <button id="reprocess-log">↻ Reprocess Log</button>
-                    <label>
-                        <input type="checkbox" id="show-pve" checked> PvE Kills
-                    </label>
-                    <label>
-                        <input type="checkbox" id="show-pvp" checked> PvP Kills
-                    </label>
-                    <label>
-                        <input type="checkbox" id="show-deaths" checked> Deaths
-                    </label>
-                    <label>
-                        <input type="checkbox" id="show-disconnects" checked> Stalls
-                    </label>
                 </div>
                 <div id="events-list" class="events-list">
                     <div class="empty-state">No events yet. Waiting for game activity...</div>
@@ -280,7 +281,7 @@
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='app.js') }}"></script>
+    <script src="{{ url_for('static', filename='app.js') }}?v={{ version }}"></script>
 </body>
 </html>
 

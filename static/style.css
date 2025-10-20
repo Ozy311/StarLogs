@@ -363,17 +363,38 @@ header h1 .tagline {
 /* Summary Counts */
 .summary-counts {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    width: 100%;
+    padding: 4px 0;
 }
 
 .count-badge {
-    padding: 4px 12px;
+    padding: 5px 12px;
     border-radius: 12px;
     font-size: 0.85rem;
     font-weight: 600;
     background: var(--bg-secondary);
     border: 2px solid;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    opacity: 0.5;
+    white-space: nowrap;
+    flex: 0 1 auto;
+    min-width: fit-content;
+}
+
+.count-badge.active {
+    opacity: 1;
+    transform: scale(1.05);
+    box-shadow: 0 0 15px currentColor;
+}
+
+.count-badge:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 20px currentColor;
 }
 
 .count-badge.pve {
@@ -394,6 +415,41 @@ header h1 .tagline {
 .count-badge.disconnect {
     border-color: var(--disconnect-color);
     color: var(--disconnect-color);
+}
+
+.count-badge.fps-pve {
+    border-color: #00d4ff;
+    color: #00d4ff;
+}
+
+.count-badge.fps-pvp {
+    border-color: #cc44ff;
+    color: #cc44ff;
+}
+
+.count-badge.fps-death {
+    border-color: #ffeb3b;
+    color: #ffeb3b;
+}
+
+.count-badge.suicide {
+    border-color: #9c27b0;
+    color: #9c27b0;
+}
+
+.count-badge.corpse {
+    border-color: #dddddd;
+    color: #dddddd;
+}
+
+.count-badge.vehicle-soft {
+    border-color: #ff9933;
+    color: #ff9933;
+}
+
+.count-badge.vehicle-full {
+    border-color: #ff3333;
+    color: #ff3333;
 }
 
 /* Controls */
@@ -503,16 +559,36 @@ header h1 .tagline {
     border-left-color: var(--disconnect-color);
 }
 
+.event-item.actor_stall {
+    border-left-color: #888888;
+}
+
 .event-item.fps_pve_kill {
-    border-left-color: #44ff88;
+    border-left-color: #00d4ff;
 }
 
 .event-item.fps_pvp_kill {
-    border-left-color: #ff6644;
+    border-left-color: #cc44ff;
 }
 
 .event-item.fps_death {
-    border-left-color: #ffaa00;
+    border-left-color: #ffeb3b;
+}
+
+.event-item.suicide {
+    border-left-color: #9c27b0;
+}
+
+.event-item.corpse {
+    border-left-color: #dddddd;
+}
+
+.event-item.vehicle_destroy_soft {
+    border-left-color: #ff9933;
+}
+
+.event-item.vehicle_destroy_full {
+    border-left-color: #ff3333;
 }
 
 .event-time {
@@ -554,19 +630,69 @@ header h1 .tagline {
     color: #fff;
 }
 
+.event-type.stall {
+    background: #888888;
+    color: #fff;
+}
+
+.event-type.suicide {
+    background: #9c27b0;
+    color: #fff;
+}
+
+.event-type.corpse {
+    background: #dddddd;
+    color: #333;
+}
+
 .event-type.fps-pve {
-    background: #44ff88;
+    background: #00d4ff;
     color: #000;
 }
 
 .event-type.fps-pvp {
-    background: #ff6644;
+    background: #cc44ff;
     color: #fff;
 }
 
 .event-type.fps-death {
     background: #ffaa00;
     color: #000;
+}
+
+.event-type.vehicle-combat {
+    background: #ff4444;
+    color: #fff;
+}
+
+.event-type.vehicle-collision {
+    background: #ff9933;
+    color: #fff;
+}
+
+.event-type.vehicle-selfdestruct {
+    background: #9933ff;
+    color: #fff;
+}
+
+.event-type.vehicle-gamerules {
+    background: #666666;
+    color: #fff;
+}
+
+.event-type.vehicle-default {
+    background: #54ADF7;
+    color: #fff;
+}
+
+.event-type.vehicle-soft {
+    background: #ff9933;
+    color: #fff;
+}
+
+.event-type.vehicle-full {
+    background: #ff3333;
+    color: #fff;
 }
 
 .event-summary {
@@ -583,6 +709,44 @@ header h1 .tagline {
     color: var(--text-secondary);
     font-size: 0.85rem;
     margin-top: 4px;
+}
+
+/* Crew Indicator and List */
+.crew-indicator {
+    color: var(--accent-blue);
+    font-size: 0.85rem;
+    transition: color 0.2s;
+}
+
+.crew-indicator.clickable {
+    cursor: pointer;
+    text-decoration: underline dotted;
+}
+
+.crew-indicator.clickable:hover {
+    color: var(--accent-yellow);
+}
+
+.crew-list {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: rgba(84, 173, 247, 0.1);
+    border-left: 2px solid var(--accent-blue);
+    border-radius: 4px;
+}
+
+.crew-list.hidden {
+    display: none;
+}
+
+.crew-member {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    padding: 3px 0;
+}
+
+.crew-member:hover {
+    color: var(--text-primary);
 }
 
 /* Raw Log Output */
@@ -1052,6 +1216,13 @@ header h1 .tagline {
     
     .summary-counts {
         width: 100%;
+        gap: 6px;
+    }
+    
+    .count-badge {
+        font-size: 0.75rem;
+        padding: 4px 8px;
+        flex: 0 1 auto;
     }
     
     .controls {

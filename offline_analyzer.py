@@ -34,9 +34,23 @@ class OfflineAnalyzer:
             'pve_kills': 0,
             'pvp_kills': 0,
             'deaths': 0,
+            'fps_pve_kills': 0,
+            'fps_pvp_kills': 0,
+            'fps_deaths': 0,
             'disconnects': 0,
-            'actor_stalls': 0
+            'actor_stalls': 0,
+            'suicides': 0,
+            'corpses': 0,
+            'vehicle_destroy_soft': 0,
+            'vehicle_destroy_full': 0,
+            'vehicle_destroy_combat': 0,
+            'vehicle_destroy_collision': 0,
+            'vehicle_destroy_selfdestruct': 0,
+            'vehicle_destroy_gamerules': 0
         }
+        
+        # Vehicle destruction tracking (for crew kill correlation)
+        self.recent_vehicle_destructions = {}
     
     def parse_all_events(self) -> List[Dict[str, Any]]:
         """
@@ -63,6 +77,48 @@ class OfflineAnalyzer:
                     # Parse for events
                     event = self.event_parser.parse_line(line)
                     if event:
+                        # Handle vehicle destruction events
+                        if event.type.value in ['vehicle_destroy_soft', 'vehicle_destroy_full']:
+                            vehicle_id = event.details.get('vehicle_id')
+                            if vehicle_id:
+                                # Store in recent destructions for crew kill correlation
+                                self.recent_vehicle_destructions[vehicle_id] = {
+                                    'timestamp': event.timestamp,
+                                    'event': event
+                                }
+                                
+                                # Clean up old entries (>10 seconds)
+                                from datetime import timedelta
+                                cutoff_time = event.timestamp - timedelta(seconds=10) if event.timestamp else None
+                                if cutoff_time:
+                                    to_remove = [vid for vid, data in self.recent_vehicle_destructions.items() 
+                                                if data['timestamp'] and data['timestamp'] < cutoff_time]
+                                    for vid in to_remove:
+                                        del self.recent_vehicle_destructions[vid]
+                        
+                        # Handle crew kills with VehicleDestruction damage type - correlate with vehicle destruction
+                        if event.type.value in ['pve_kill', 'pvp_kill'] and event.details.get('damage_type') == 'VehicleDestruction':
+                            # Extract vehicle_id from zone (victim was in the destroyed vehicle)
+                            zone = event.details.get('zone', '')
+                            vehicle_id_match = re.search(r'_(\d{13})$', zone)
+                            if vehicle_id_match:
+                                vehicle_id = vehicle_id_match.group(1)
+                                
+                                # Look up recent vehicle destruction
+                                if vehicle_id in self.recent_vehicle_destructions:
+                                    destruction_data = self.recent_vehicle_destructions[vehicle_id]
+                                    destruction_event = destruction_data['event']
+                                    
+                                    # Check timestamp proximity (within 200ms)
+                                    from datetime import timedelta
+                                    time_diff = abs((event.timestamp - destruction_event.timestamp).total_seconds()) if event.timestamp and destruction_event.timestamp else 999
+                                    
+                                    if time_diff <= 0.2:  # 200ms window
+                                        # Update crew count and names in the vehicle destruction event
+                                        victim_name = event.details.get('victim', 'Unknown')
+                                        destruction_event.details['crew_count'] += 1
+                                        destruction_event.details['crew_names'].append(victim_name)
+                        
                         self.events.append(event.to_dict())
                         
                         # Update stats
@@ -72,10 +128,42 @@ class OfflineAnalyzer:
                             self.stats['pvp_kills'] += 1
                         elif event.type.value == 'death':
                             self.stats['deaths'] += 1
+                        elif event.type.value == 'fps_pve_kill':
+                            self.stats['fps_pve_kills'] += 1
+                        elif event.type.value == 'fps_pvp_kill':
+                            self.stats['fps_pvp_kills'] += 1
+                        elif event.type.value == 'fps_death':
+                            self.stats['fps_deaths'] += 1
                         elif event.type.value == 'disconnect':
                             self.stats['disconnects'] += 1
                         elif event.type.value == 'actor_stall':
                             self.stats['actor_stalls'] += 1
+                        elif event.type.value == 'suicide':
+                            self.stats['suicides'] += 1
+                        elif event.type.value == 'corpse':
+                            self.stats['corpses'] += 1
+                        elif event.type.value == 'vehicle_destroy_soft':
+                            self.stats['vehicle_destroy_soft'] += 1
+                            damage_type = event.details.get('damage_type', '').lower()
+                            if damage_type == 'combat':
+                                self.stats['vehicle_destroy_combat'] += 1
+                            elif damage_type == 'collision':
+                                self.stats['vehicle_destroy_collision'] += 1
+                            elif damage_type == 'selfdestruct':
+                                self.stats['vehicle_destroy_selfdestruct'] += 1
+                            elif damage_type == 'gamerules':
+                                self.stats['vehicle_destroy_gamerules'] += 1
+                        elif event.type.value == 'vehicle_destroy_full':
+                            self.stats['vehicle_destroy_full'] += 1
+                            damage_type = event.details.get('damage_type', '').lower()
+                            if damage_type == 'combat':
+                                self.stats['vehicle_destroy_combat'] += 1
+                            elif damage_type == 'collision':
+                                self.stats['vehicle_destroy_collision'] += 1
+                            elif damage_type == 'selfdestruct':
+                                self.stats['vehicle_destroy_selfdestruct'] += 1
+                            elif damage_type == 'gamerules':
+                                self.stats['vehicle_destroy_gamerules'] += 1
                     
                     self.stats['total_lines'] += 1
         
@@ -91,7 +179,14 @@ class OfflineAnalyzer:
         print(f"  - {self.stats['pve_kills']} PvE Kills")
         print(f"  - {self.stats['pvp_kills']} PvP Kills")
         print(f"  - {self.stats['deaths']} Deaths")
+        print(f"  - {self.stats['fps_pve_kills']} FPS PvE Kills")
+        print(f"  - {self.stats['fps_pvp_kills']} FPS PvP Kills")
+        print(f"  - {self.stats['fps_deaths']} FPS Deaths")
+        print(f"  - {self.stats['vehicle_destroy_soft']} Soft Deaths (0→1)")
+        print(f"  - {self.stats['vehicle_destroy_full']} Full Destructions (→2)")
         print(f"  - {self.stats['actor_stalls']} Actor Stalls")
+        print(f"  - {self.stats['suicides']} Suicides")
+        print(f"  - {self.stats['corpses']} Corpses")
         print(f"  - {self.stats['disconnects']} Disconnects")
         
         return self.events

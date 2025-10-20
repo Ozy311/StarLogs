@@ -13,7 +13,13 @@ class StarLogsApp {
             pve: true,
             pvp: true,
             deaths: true,
-            disconnects: true
+            fps_pve: true,
+            fps_pvp: true,
+            fps_death: true,
+            disconnects: true,
+            vehicle_soft: true,
+            vehicle_full: true,
+            corpse: true
         };
         
         // Event counters
@@ -21,7 +27,15 @@ class StarLogsApp {
             pve: 0,
             pvp: 0,
             deaths: 0,
-            disconnects: 0
+            fps_pve: 0,
+            fps_pvp: 0,
+            fps_death: 0,
+            disconnects: 0,
+            vehicle_soft: 0,
+            vehicle_full: 0,
+            stalls: 0,
+            corpse: 0,
+            suicide: 0
         };
         
         this.initializeElements();
@@ -43,7 +57,14 @@ class StarLogsApp {
         this.pveCount = document.getElementById('pve-count');
         this.pvpCount = document.getElementById('pvp-count');
         this.deathCount = document.getElementById('death-count');
+        this.fpsPveCount = document.getElementById('fps-pve-count');
+        this.fpsPvpCount = document.getElementById('fps-pvp-count');
+        this.fpsDeathCount = document.getElementById('fps-death-count');
+        this.suicideCount = document.getElementById('suicide-count');
+        this.corpseCount = document.getElementById('corpse-count');
         this.disconnectCount = document.getElementById('disconnect-count');
+        this.vehicleSoftCount = document.getElementById('vehicle-soft-count');
+        this.vehicleFullCount = document.getElementById('vehicle-full-count');
         
         // Event list
         this.eventsList = document.getElementById('events-list');
@@ -83,6 +104,7 @@ class StarLogsApp {
         
         // Historical logs
         this.historyBtn = document.getElementById('history-btn');
+        this.exportCurrentBtn = document.getElementById('export-current-btn');
         this.historyModal = document.getElementById('history-modal');
         this.historyVersionSelect = document.getElementById('history-version-select');
         this.historySortSelect = document.getElementById('history-sort-select');
@@ -104,10 +126,6 @@ class StarLogsApp {
         this.loadTheme();
         
         // Controls
-        this.showPve = document.getElementById('show-pve');
-        this.showPvp = document.getElementById('show-pvp');
-        this.showDeaths = document.getElementById('show-deaths');
-        this.showDisconnects = document.getElementById('show-disconnects');
         this.autoScrollCheckbox = document.getElementById('auto-scroll');
         this.clearEventsBtn = document.getElementById('clear-events');
         this.clearLogBtn = document.getElementById('clear-log');
@@ -115,25 +133,14 @@ class StarLogsApp {
     }
     
     attachEventListeners() {
-        // Filter checkboxes
-        this.showPve.addEventListener('change', (e) => {
-            this.filters.pve = e.target.checked;
-            this.filterEvents();
-        });
-        
-        this.showPvp.addEventListener('change', (e) => {
-            this.filters.pvp = e.target.checked;
-            this.filterEvents();
-        });
-        
-        this.showDeaths.addEventListener('change', (e) => {
-            this.filters.deaths = e.target.checked;
-            this.filterEvents();
-        });
-        
-        this.showDisconnects.addEventListener('change', (e) => {
-            this.filters.disconnects = e.target.checked;
-            this.filterEvents();
+        // Badge filter clicks
+        document.querySelectorAll('.count-badge[data-filter]').forEach(badge => {
+            badge.addEventListener('click', () => {
+                const filterName = badge.dataset.filter;
+                this.filters[filterName] = !this.filters[filterName];
+                badge.classList.toggle('active');
+                this.filterEvents();
+            });
         });
         
         this.autoScrollCheckbox.addEventListener('change', (e) => {
@@ -143,11 +150,13 @@ class StarLogsApp {
         // Clear buttons
         this.clearEventsBtn.addEventListener('click', () => {
             this.eventsList.innerHTML = '<div class="empty-state">No events yet. Waiting for game activity...</div>';
-            this.counters = { pve: 0, pvp: 0, deaths: 0, disconnects: 0 };
-            this.pveCount.textContent = '0 PvE';
-            this.pvpCount.textContent = '0 PvP';
+            this.counters = { pve: 0, pvp: 0, deaths: 0, disconnects: 0, vehicle_soft: 0, vehicle_full: 0 };
+            this.pveCount.textContent = '0 Ship PvE';
+            this.pvpCount.textContent = '0 Ship PvP';
             this.deathCount.textContent = '0 Deaths';
             this.disconnectCount.textContent = '0 DC';
+            if (this.vehicleSoftCount) this.vehicleSoftCount.textContent = '0 Soft';
+            if (this.vehicleFullCount) this.vehicleFullCount.textContent = '0 Full';
         });
         
         this.clearLogBtn.addEventListener('click', () => {
@@ -200,6 +209,23 @@ class StarLogsApp {
         // Historical logs
         this.historyBtn.addEventListener('click', () => {
             this.openHistoryBrowser();
+        });
+        
+        // Export current log
+        this.exportCurrentBtn.addEventListener('click', async () => {
+            try {
+                const response = await fetch('/api/log_file');
+                const data = await response.json();
+                
+                if (data.log_file) {
+                    await this.exportLogHTML(data.log_file, 'Current Game Log');
+                } else {
+                    alert('No active game log found');
+                }
+            } catch (error) {
+                console.error('Error exporting current log:', error);
+                alert('Error exporting current log');
+            }
         });
         
         this.historyVersionSelect.addEventListener('change', (e) => {
@@ -475,11 +501,13 @@ class StarLogsApp {
         this.logOutput.innerHTML = '';
         
         // Reset counters
-        this.counters = { pve: 0, pvp: 0, deaths: 0, disconnects: 0 };
-        this.pveCount.textContent = '0 PvE';
-        this.pvpCount.textContent = '0 PvP';
+        this.counters = { pve: 0, pvp: 0, deaths: 0, disconnects: 0, vehicle_soft: 0, vehicle_full: 0 };
+        this.pveCount.textContent = '0 Ship PvE';
+        this.pvpCount.textContent = '0 Ship PvP';
         this.deathCount.textContent = '0 Deaths';
         this.disconnectCount.textContent = '0 Stalls';
+        if (this.vehicleSoftCount) this.vehicleSoftCount.textContent = '0 Soft';
+        if (this.vehicleFullCount) this.vehicleFullCount.textContent = '0 Full';
     }
     
     async loadAboutInfo() {
@@ -631,11 +659,16 @@ class StarLogsApp {
             // Clear UI for reprocessing
             this.eventsList.innerHTML = '<div class="empty-state">Reprocessing...</div>';
             this.logOutput.innerHTML = '';
-            this.counters = { pve: 0, pvp: 0, deaths: 0, disconnects: 0 };
-            this.pveCount.textContent = '0 PvE';
-            this.pvpCount.textContent = '0 PvP';
+            this.counters = { pve: 0, pvp: 0, deaths: 0, fps_pve: 0, fps_pvp: 0, fps_death: 0, disconnects: 0, vehicle_soft: 0, vehicle_full: 0, stalls: 0, corpse: 0 };
+            this.pveCount.textContent = '0 Ship PvE';
+            this.pvpCount.textContent = '0 Ship PvP';
             this.deathCount.textContent = '0 Deaths';
+            if (this.fpsPveCount) this.fpsPveCount.textContent = '0 FPS PvE';
+            if (this.fpsPvpCount) this.fpsPvpCount.textContent = '0 FPS PvP';
+            if (this.fpsDeathCount) this.fpsDeathCount.textContent = '0 FPS Death';
             this.disconnectCount.textContent = '0 DC';
+            if (this.vehicleSoftCount) this.vehicleSoftCount.textContent = '0 Soft';
+            if (this.vehicleFullCount) this.vehicleFullCount.textContent = '0 Full';
         }
     }
     
@@ -661,16 +694,31 @@ class StarLogsApp {
         // Increment counters
         if (event.type === 'pve_kill') {
             this.counters.pve++;
-            this.pveCount.textContent = `${this.counters.pve} PvE`;
+            this.pveCount.textContent = `${this.counters.pve} Ship PvE`;
         } else if (event.type === 'pvp_kill') {
             this.counters.pvp++;
-            this.pvpCount.textContent = `${this.counters.pvp} PvP`;
+            this.pvpCount.textContent = `${this.counters.pvp} Ship PvP`;
         } else if (event.type === 'death') {
             this.counters.deaths++;
             this.deathCount.textContent = `${this.counters.deaths} Deaths`;
-        } else if (event.type === 'disconnect') {
+        } else if (event.type === 'fps_pve_kill') {
+            this.counters.fps_pve++;
+            if (this.fpsPveCount) this.fpsPveCount.textContent = `${this.counters.fps_pve} FPS PvE`;
+        } else if (event.type === 'fps_pvp_kill') {
+            this.counters.fps_pvp++;
+            if (this.fpsPvpCount) this.fpsPvpCount.textContent = `${this.counters.fps_pvp} FPS PvP`;
+        } else if (event.type === 'fps_death') {
+            this.counters.fps_death++;
+            if (this.fpsDeathCount) this.fpsDeathCount.textContent = `${this.counters.fps_death} FPS Death`;
+        } else if (event.type === 'disconnect' || event.type === 'actor_stall') {
             this.counters.disconnects++;
             this.disconnectCount.textContent = `${this.counters.disconnects} Stalls`;
+        } else if (event.type === 'vehicle_destroy_soft') {
+            this.counters.vehicle_soft++;
+            if (this.vehicleSoftCount) this.vehicleSoftCount.textContent = `${this.counters.vehicle_soft} Soft`;
+        } else if (event.type === 'vehicle_destroy_full') {
+            this.counters.vehicle_full++;
+            if (this.vehicleFullCount) this.vehicleFullCount.textContent = `${this.counters.vehicle_full} Full`;
         }
         
         // Create event element
@@ -688,7 +736,7 @@ class StarLogsApp {
         let details = '';
         
         if (event.type === 'pve_kill') {
-            typeLabel = 'PvE Kill';
+            typeLabel = 'Ship PvE';
             typeBadge = 'pve';
             const killer = event.details?.killer || 'Unknown';
             const victim = event.details?.victim || 'Unknown';
@@ -696,7 +744,7 @@ class StarLogsApp {
             summary = `<strong>${killer}</strong> killed <strong>${victim}</strong>`;
             details = `Weapon: ${this.formatWeaponName(weapon)}`;
         } else if (event.type === 'pvp_kill') {
-            typeLabel = 'PvP Kill';
+            typeLabel = 'Ship PvP';
             typeBadge = 'pvp';
             const killer = event.details?.killer || 'Unknown';
             const victim = event.details?.victim || 'Unknown';
@@ -733,11 +781,71 @@ class StarLogsApp {
             const victim = event.details?.victim || 'You';
             summary = `💀 <strong>${victim}</strong> was killed by <strong>${killer}</strong>`;
             details = event.details?.weapon ? `Weapon: ${this.formatWeaponName(event.details.weapon)}` : '';
+        } else if (event.type === 'vehicle_destroy_soft') {
+            typeLabel = 'Soft Death';
+            typeBadge = 'vehicle-soft';
+            const shipName = event.details?.ship_name || 'Unknown Ship';
+            const attacker = event.details?.attacker || 'Unknown';
+            const damageType = event.details?.damage_type || 'Unknown';
+            const crewCount = event.details?.crew_count || 0;
+            const crewNames = event.details?.crew_names || [];
+            summary = `<strong>${shipName}</strong> disabled by <strong>${attacker}</strong>`;
+            if (crewCount > 0) {
+                summary += ` <span class="crew-indicator clickable" data-crew-count="${crewCount}" data-crew-names='${JSON.stringify(crewNames)}'>(+${crewCount} crew)</span>`;
+            }
+            details = damageType ? `Damage Type: ${damageType}` : '';
+        } else if (event.type === 'vehicle_destroy_full') {
+            typeLabel = 'Destroyed';
+            typeBadge = 'vehicle-full';
+            const shipName = event.details?.ship_name || 'Unknown Ship';
+            const attacker = event.details?.attacker || 'Unknown';
+            const damageType = event.details?.damage_type || 'Unknown';
+            const crewCount = event.details?.crew_count || 0;
+            const crewNames = event.details?.crew_names || [];
+            summary = `<strong>${shipName}</strong> destroyed by <strong>${attacker}</strong>`;
+            if (crewCount > 0) {
+                summary += ` <span class="crew-indicator clickable" data-crew-count="${crewCount}" data-crew-names='${JSON.stringify(crewNames)}'>(+${crewCount} crew)</span>`;
+            }
+            details = damageType ? `Damage Type: ${damageType}` : '';
         } else if (event.type === 'disconnect') {
             typeLabel = 'Disconnect';
             typeBadge = 'dc';
             summary = 'Client disconnected';
             details = event.raw_line?.substring(0, 100) || '';
+        } else if (event.type === 'actor_stall') {
+            typeLabel = 'Actor Stall';
+            typeBadge = 'stall';
+            const player = event.details?.player || 'Unknown';
+            const stallType = event.details?.stall_type || 'unknown';
+            const length = event.details?.length || 0;
+            summary = `<strong>${player}</strong> stalled`;
+            details = `Type: ${stallType}, Duration: ${length}s`;
+            this.counters.stalls++;
+            if (this.disconnectCount) {
+                this.disconnectCount.textContent = `${this.counters.stalls} Stalls`;
+            }
+        } else if (event.type === 'suicide') {
+            typeLabel = 'Suicide';
+            typeBadge = 'suicide';
+            const victim = event.details?.victim || 'Unknown';
+            const damageType = event.details?.damage_type || 'Unknown';
+            summary = `💀 <strong>${victim}</strong> killed themselves`;
+            details = `Damage Type: ${damageType}`;
+            this.counters.suicide++;
+            if (this.suicideCount) {
+                this.suicideCount.textContent = `${this.counters.suicide} Suicides`;
+            }
+        } else if (event.type === 'corpse') {
+            typeLabel = 'Corpse 💀';
+            typeBadge = 'corpse';
+            const player = event.details?.player || 'Unknown';
+            const status = event.details?.status || '';
+            summary = `<strong>${player}</strong> became a corpse`;
+            details = status;
+            this.counters.corpse++;
+            if (this.corpseCount) {
+                this.corpseCount.textContent = `${this.counters.corpse} Corpses`;
+            }
         }
         
         // Build expanded details section with rich information
@@ -828,6 +936,15 @@ class StarLogsApp {
             });
         }
         
+        // Add click handler for crew indicator expansion
+        const crewIndicator = eventDiv.querySelector('.crew-indicator.clickable');
+        if (crewIndicator) {
+            crewIndicator.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleCrewDetails(crewIndicator, eventDiv);
+            });
+        }
+        
         // Insert at top (newest first)
         this.eventsList.insertBefore(eventDiv, this.eventsList.firstChild);
         
@@ -865,6 +982,56 @@ class StarLogsApp {
         return cleaned.replace(/_/g, ' ');
     }
     
+    getBadgeClassForDamageType(damageType) {
+        // Return badge class based on damage type
+        const type = (damageType || '').toLowerCase();
+        switch (type) {
+            case 'combat':
+                return 'vehicle-combat';
+            case 'collision':
+                return 'vehicle-collision';
+            case 'selfdestruct':
+                return 'vehicle-selfdestruct';
+            case 'gamerules':
+                return 'vehicle-gamerules';
+            default:
+                return 'vehicle-default';
+        }
+    }
+    
+    toggleCrewDetails(crewIndicator, eventDiv) {
+        // Check if crew list already exists
+        let crewList = eventDiv.querySelector('.crew-list');
+        
+        if (crewList) {
+            // Toggle visibility
+            crewList.classList.toggle('hidden');
+            const isHidden = crewList.classList.contains('hidden');
+            crewIndicator.textContent = `(${isHidden ? '+' : '−'}${crewIndicator.dataset.crewCount} crew)`;
+        } else {
+            // Create crew list
+            try {
+                const crewNames = JSON.parse(crewIndicator.dataset.crewNames || '[]');
+                if (crewNames.length > 0) {
+                    crewList = document.createElement('div');
+                    crewList.className = 'crew-list';
+                    crewList.innerHTML = crewNames.map(name => 
+                        `<div class="crew-member">👤 ${name}</div>`
+                    ).join('');
+                    
+                    // Insert after the event summary
+                    const summary = eventDiv.querySelector('.event-summary');
+                    summary.appendChild(crewList);
+                    
+                    // Update indicator text
+                    crewIndicator.textContent = `(−${crewIndicator.dataset.crewCount} crew)`;
+                }
+            } catch (e) {
+                console.error('Failed to parse crew names:', e);
+            }
+        }
+    }
+    
     applyFilterToEvent(eventDiv) {
         const type = eventDiv.dataset.type;
         let show = false;
@@ -872,7 +1039,14 @@ class StarLogsApp {
         if (type === 'pve_kill') show = this.filters.pve;
         else if (type === 'pvp_kill') show = this.filters.pvp;
         else if (type === 'death') show = this.filters.deaths;
-        else if (type === 'disconnect') show = this.filters.disconnects;
+        else if (type === 'fps_pve_kill') show = this.filters.fps_pve;
+        else if (type === 'fps_pvp_kill') show = this.filters.fps_pvp;
+        else if (type === 'fps_death') show = this.filters.fps_death;
+        else if (type === 'suicide') show = this.filters.suicide;
+        else if (type === 'corpse') show = this.filters.corpse;
+        else if (type === 'disconnect' || type === 'actor_stall') show = this.filters.disconnects;
+        else if (type === 'vehicle_destroy_soft') show = this.filters.vehicle_soft;
+        else if (type === 'vehicle_destroy_full') show = this.filters.vehicle_full;
         
         eventDiv.style.display = show ? 'flex' : 'none';
     }
@@ -1352,11 +1526,18 @@ class StarLogsApp {
                     <div class="analysis-col">
                         <h3>📊 Events</h3>
                         <div class="compact-stats">
-                            <div class="compact-stat"><span class="stat-label">PvE:</span> <span class="stat-value pve">${stats.pve_kills || 0}</span></div>
-                            <div class="compact-stat"><span class="stat-label">PvP:</span> <span class="stat-value pvp">${stats.pvp_kills || 0}</span></div>
+                            <div class="compact-stat"><span class="stat-label">Ship PvE:</span> <span class="stat-value pve">${stats.pve_kills || 0}</span></div>
+                            <div class="compact-stat"><span class="stat-label">Ship PvP:</span> <span class="stat-value pvp">${stats.pvp_kills || 0}</span></div>
                             <div class="compact-stat"><span class="stat-label">Deaths:</span> <span class="stat-value death">${stats.deaths || 0}</span></div>
+                            <div class="compact-stat"><span class="stat-label">FPS PvE:</span> <span class="stat-value fps-pve">${stats.fps_pve_kills || 0}</span></div>
+                            <div class="compact-stat"><span class="stat-label">FPS PvP:</span> <span class="stat-value fps-pvp">${stats.fps_pvp_kills || 0}</span></div>
+                            <div class="compact-stat"><span class="stat-label">FPS Death:</span> <span class="stat-value fps-death">${stats.fps_deaths || 0}</span></div>
+                            <div class="compact-stat"><span class="stat-label">Soft Deaths:</span> <span class="stat-value vehicle-soft">${stats.vehicle_destroy_soft || 0}</span></div>
+                            <div class="compact-stat"><span class="stat-label">Destructions:</span> <span class="stat-value vehicle-full">${stats.vehicle_destroy_full || 0}</span></div>
                             <div class="compact-stat"><span class="stat-label">Disconnects:</span> <span class="stat-value disconnect">${stats.disconnects || 0}</span></div>
                             <div class="compact-stat"><span class="stat-label">Stalls:</span> <span class="stat-value stall">${stats.actor_stalls || 0}</span></div>
+                            <div class="compact-stat"><span class="stat-label">Suicides:</span> <span class="stat-value suicide">${stats.suicides || 0}</span></div>
+                            <div class="compact-stat"><span class="stat-label">Corpses:</span> <span class="stat-value corpse">${stats.corpses || 0}</span></div>
                         </div>
                     </div>
                     <div class="analysis-col">
@@ -1399,7 +1580,7 @@ class StarLogsApp {
             `;
             
             displayEvents.forEach(event => {
-                const eventClass = event.type.toLowerCase().replace('_', '');
+                const eventClass = event.type.toLowerCase().replaceAll('_', '');
                 html += `
                     <div class="timeline-event ${eventClass}">
                         <span class="timeline-timestamp">${event.timestamp || 'N/A'}</span>
@@ -1422,9 +1603,9 @@ class StarLogsApp {
     formatEventDetails(event) {
         switch (event.type) {
             case 'pve_kill':
-                return `PvE Kill: ${event.details?.target || 'Unknown target'}`;
+                return `Ship PvE Kill: ${event.details?.target || 'Unknown target'}`;
             case 'pvp_kill':
-                return `PvP Kill: ${event.details?.target || 'Unknown player'}`;
+                return `Ship PvP Kill: ${event.details?.target || 'Unknown player'}`;
             case 'fps_pve_kill':
                 return `FPS PvE Kill: ${event.details?.target || 'Unknown target'}`;
             case 'fps_pvp_kill':
@@ -1440,6 +1621,33 @@ class StarLogsApp {
                     return `Actor Stall: ${event.details.player} (${event.details.stall_type}, ${event.details.length}s)`;
                 }
                 return 'Actor Stall (Crash/Freeze)';
+            case 'suicide':
+                const suicidePlayer = event.details?.victim || 'Unknown';
+                const suicideDamage = event.details?.damage_type || 'Unknown';
+                return `Suicide 💀: ${suicidePlayer} (${suicideDamage})`;
+            case 'corpse':
+                if (event.details?.player && event.details?.status) {
+                    return `Corpse 💀: ${event.details.player} - ${event.details.status}`;
+                }
+                return 'Player Corpse 💀';
+            case 'vehicle_destroy_soft':
+                const softShip = event.details?.ship_name || 'Unknown';
+                const softAttacker = event.details?.attacker || 'Unknown';
+                const softDamage = event.details?.damage_type || '';
+                const softCrew = event.details?.crew_count || 0;
+                let softText = `${softShip} disabled by ${softAttacker}`;
+                if (softDamage) softText += ` (${softDamage})`;
+                if (softCrew > 0) softText += ` +${softCrew} crew`;
+                return softText;
+            case 'vehicle_destroy_full':
+                const fullShip = event.details?.ship_name || 'Unknown';
+                const fullAttacker = event.details?.attacker || 'Unknown';
+                const fullDamage = event.details?.damage_type || '';
+                const fullCrew = event.details?.crew_count || 0;
+                let fullText = `${fullShip} destroyed by ${fullAttacker}`;
+                if (fullDamage) fullText += ` (${fullDamage})`;
+                if (fullCrew > 0) fullText += ` +${fullCrew} crew`;
+                return fullText;
             default:
                 return event.type;
         }

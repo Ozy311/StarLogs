@@ -5,7 +5,7 @@
 # StarLogs
 ### Star Citizen Log Parser & Event Tracker
 
-![Version](https://img.shields.io/badge/version-0.8.2-blue)
+![Version](https://img.shields.io/badge/version-0.9.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
 ![Python](https://img.shields.io/badge/python-3.8+-blue)
@@ -28,7 +28,8 @@ StarLogs is a comprehensive Star Citizen log parser that monitors your game logs
 
 ### 🎯 Core Functionality
 - **Real-time log monitoring** - Automatically detects and monitors active Star Citizen game logs
-- **Event tracking** - PvE kills, PvP kills, deaths, actor stalls, and disconnects
+- **Event tracking** - PvE kills, PvP kills, deaths, actor stalls, disconnects, and **vehicle destructions**
+- **Vehicle destruction tracking** - Monitors ship soft deaths (disabled) and full destructions with automatic crew kill correlation
 - **Enhanced event details** - Ship/location extraction, weapon class info, attack direction analysis
 - **System information** - Extracts CPU, GPU, RAM, OS details from logs
 - **Multi-version support** - Detects and manages multiple game installations (LIVE, PTU, EPTU)
@@ -200,8 +201,9 @@ The TUI console shows:
   - 🎯 Weapon & class (e.g., "Ballistic Cannon (S4)")
   - 💥 Damage type (e.g., "Explosion", "Crash")
   - 🧭 Attack direction (e.g., "from Behind", "from Above")
+  - 👥 Crew members (click (+N crew) to expand)
   - Victim/Killer IDs
-- Event filtering checkboxes (PvE, PvP, Deaths, Disconnects)
+- Event filtering checkboxes (PvE, PvP, Deaths, Disconnects, Soft Deaths, Destructions)
 - Clear events button
 
 **Controls:**
@@ -284,11 +286,34 @@ The TUI console shows:
 
 | Event | Description | Details Captured |
 |-------|-------------|------------------|
-| **PvE Kill** | Player killed NPC | Weapon, damage type, ship/location, direction |
-| **PvP Kill** | Player killed player | Weapon, damage type, ship/location, direction |
-| **Death** | Player was killed | Killer, damage type, ship/location |
+| **PvE Kill** | Player killed NPC (vehicle) | Weapon, damage type, ship/location, direction |
+| **PvP Kill** | Player killed player (vehicle) | Weapon, damage type, ship/location, direction |
+| **Death** | Player was killed (vehicle) | Killer, damage type, ship/location |
+| **FPS PvE Kill** | Player killed NPC on foot | Weapon, location, timestamp |
+| **FPS PvP Kill** | Player killed player on foot | Weapon, location, timestamp |
+| **FPS Death** | Player was killed on foot | Killer, damage type, location |
+| **Soft Death** | Vehicle disabled/crippled (0→1) | Ship name, attacker, damage type, crew count |
+| **Destruction** | Vehicle fully destroyed (→2) | Ship name, attacker, damage type, crew count |
 | **Actor Stall** | Game freeze/crash | Player name, stall type, duration |
 | **Disconnect** | Network disconnect | Timestamp, reason |
+
+**Vehicle Destruction System:**
+- **Soft Death (Level 0→1)** - Ship disabled but salvageable, orange indicator
+- **Full Destruction (Level 1→2 or 0→2)** - Ship exploded and gone, red indicator
+- **Crew Correlation** - Automatically links crew deaths to vehicle destructions within 200ms
+- **Expandable Crew Details** - Click (+N crew) to see individual crew member names
+- **Damage Type Color Coding:**
+  - Combat (red) - Ship-to-ship weapon damage
+  - Collision (orange) - Ship collisions
+  - SelfDestruct (purple) - Player-initiated self-destruct
+  - GameRules (gray) - Server cleanup/despawn
+
+**FPS Combat Tracking:**
+- **FPS PvE (Cyan)** - On-foot kills of NPCs, distinct from vehicle combat
+- **FPS PvP (Purple)** - On-foot player kills, separate counter from vehicle PvP
+- **FPS Death (Yellow)** - Deaths while on foot, with damage type tracking
+- **Weapon Details** - Captures weapon names and classifications when available
+- **Filterable** - Independent filters for each FPS event type
 
 **Enhanced Details (when available):**
 - **Ship/Location** - Extracted from zone strings (e.g., "890 Jump", "Gladius")
@@ -334,6 +359,16 @@ Browse and analyze past gaming sessions from LogBackups directory.
 Detailed analysis with event statistics, session uptime, system specs, and event timeline.
 
 ![History Analysis](docs/screenshots/history-analysis.png)
+
+### Vehicle Destruction Tracking (New in v0.9.0)
+Real-time vehicle destruction events with automatic crew kill correlation and damage type color coding.
+
+![Vehicle Destruction Events](docs/screenshots/vehicle-destruction-events.png)
+
+### Crew Details Expansion
+Click on crew indicators to see individual crew member names from destroyed ships.
+
+![Crew List Expanded](docs/screenshots/vehicle-destruction-crew-expanded.png)
 
 ---
 
@@ -503,6 +538,71 @@ Package the entire `starlogs.dist` folder. Users can run `StarLogs.exe` directly
 1. Change port via TUI: Press `O` → Change Port
 2. Or edit `starlogs_config.json`: Change `web_port` value
 3. Restart StarLogs
+
+---
+
+## Changelog
+
+### Version 0.9.0 (2025-10-19) - Vehicle Destruction System
+
+**New Features:**
+- ✨ **Vehicle Destruction Tracking** - Full support for ship destruction events
+  - Soft Death detection (Level 0→1) - Ships disabled/crippled but salvageable
+  - Full Destruction detection (Level 1→2 or 0→2) - Ships exploded and destroyed
+  - Ship name extraction from vehicle IDs (e.g., "ANVL_Paladin" → "Paladin")
+  - PvP/PvE classification for vehicle destructions
+- 🔗 **Automatic Crew Kill Correlation** - Links crew deaths to vehicle destructions
+  - 200ms timestamp proximity matching
+  - Vehicle ID correlation from zone fields
+  - Real-time crew count and names displayed on destruction events
+- 🎨 **Damage Type Color Coding**
+  - Combat: Red badge - Ship-to-ship weapon damage
+  - Collision: Orange badge - Ship collisions
+  - SelfDestruct: Purple badge - Player-initiated self-destruct
+  - GameRules: Gray badge - Server cleanup/despawn
+- 👥 **Expandable Crew Details**
+  - Click "(+N crew)" indicator to expand/collapse crew list
+  - Individual crew member names with icons
+  - Clean, inline expansion within event card
+- 📊 **Enhanced Statistics**
+  - Separate counters for Soft Deaths and Full Destructions
+  - Damage type breakdown (Combat, Collision, SelfDestruct, GameRules)
+  - Updated dashboard with orange/red color coding
+- 🎛️ **New Filter Options**
+  - Filter checkboxes for Soft Deaths
+  - Filter checkboxes for Full Destructions
+  - Independent control of vehicle destruction events
+
+**Technical Improvements:**
+- Added `VEHICLE_DESTROY_SOFT` and `VEHICLE_DESTROY_FULL` event types
+- Implemented vehicle destruction regex pattern for log parsing
+- Added ship name extraction logic for 15+ manufacturers
+- Updated web server with correlation tracking and stats
+- Enhanced offline analyzer with vehicle destruction support
+- Updated HTML report generator with new event types
+- Added CSS styling for vehicle destruction events and badges
+
+**Files Modified:**
+- `event_parser.py` - New event types and parsing logic (~120 lines)
+- `web_server.py` - Correlation tracking and stats (~95 lines)
+- `offline_analyzer.py` - Offline analysis support (~75 lines)
+- `html_generator.py` - Report generation updates (~65 lines)
+- `static/app.js` - Frontend display logic (~140 lines)
+- `static/style.css` - Event styling and colors (~60 lines)
+- `templates/index.html` - Counter badges and filters (~8 lines)
+
+**Total:** ~563 lines of new code
+
+### Version 0.8.2 (Previous)
+- Event detail enhancements
+- Historical log browser improvements
+- UI refinements and bug fixes
+
+### Version 0.8.0
+- Historical log browser
+- HTML export functionality
+- Settings management overhaul
+- Multi-version support improvements
 
 ---
 

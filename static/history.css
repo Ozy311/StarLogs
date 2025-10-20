@@ -248,6 +248,34 @@
 }
 
 .stat-value.stall {
+    color: #888888;
+}
+
+.stat-value.suicide {
+    color: #9c27b0;
+}
+
+.stat-value.corpse {
+    color: #dddddd;
+}
+
+.stat-value.fps-pve {
+    color: #00d4ff;
+}
+
+.stat-value.fps-pvp {
+    color: #cc44ff;
+}
+
+.stat-value.fps-death {
+    color: #ffaa00;
+}
+
+.stat-value.vehicle-soft {
+    color: #ff9933;
+}
+
+.stat-value.vehicle-full {
     color: #ff4444;
 }
 
@@ -292,6 +320,34 @@
 }
 
 .timeline-event.stall {
+    border-left-color: #888888;
+}
+
+.timeline-event.suicide {
+    border-left-color: #9c27b0;
+}
+
+.timeline-event.corpse {
+    border-left-color: #dddddd;
+}
+
+.timeline-event.fpspvekill {
+    border-left-color: #00d4ff;
+}
+
+.timeline-event.fpspvpkill {
+    border-left-color: #cc44ff;
+}
+
+.timeline-event.fpsdeath {
+    border-left-color: #ffaa00;
+}
+
+.timeline-event.vehicledestroysoft {
+    border-left-color: #ff9933;
+}
+
+.timeline-event.vehicledestroyfull {
     border-left-color: #ff4444;
 }
 

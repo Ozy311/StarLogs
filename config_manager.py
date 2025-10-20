@@ -19,7 +19,8 @@ class ConfigManager:
         'web_port': 3111,
         'auto_detect': True,
         'custom_installations': [],
-        'debug_mode': False
+        'debug_mode': False,
+        'poll_interval': 1.0  # Log polling interval in seconds (1.0 = once per second)
     }
     
     def __init__(self, config_file: str = "starlogs_config.json"):

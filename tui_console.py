@@ -16,6 +16,7 @@ import time
 import sys
 import os
 import msvcrt  # For Windows keyboard input
+from version import __version__
 
 
 class TUIConsole:
@@ -84,8 +85,9 @@ class TUIConsole:
         # Options modal state
         self.options_selected_index = 0  # Which option is selected
         self.options_editing = False  # Whether we're editing a value
-        self.options_items = ['port', 'auto_detect', 'debug_mode']  # Available options
+        self.options_items = ['port', 'poll_interval', 'auto_detect', 'debug_mode']  # Available options
         self.port_input_buffer = ""  # Buffer for port text input
+        self.poll_interval_input_buffer = ""  # Buffer for poll interval text input
         
         # Lock for thread safety
         self.lock = threading.Lock()
@@ -94,8 +96,9 @@ class TUIConsole:
         self.live = None
         self.running = False
         
-        # Callback for version switching
+        # Callbacks
         self.on_version_change = None
+        self.on_debug_toggle = None  # Callback when debug mode is toggled
         self.pending_callback = None  # Callback to run after TUI exits
     
     def add_game_log(self, line: str):
@@ -160,9 +163,16 @@ class TUIConsole:
         table.add_column(justify="right")
         
         with self.lock:
+            # Check debug mode status
+            debug_indicator = ""
+            if self.config_manager:
+                debug_enabled = self.config_manager.get('debug_mode', False)
+                if debug_enabled:
+                    debug_indicator = "  [bold white on red] DEBUG MODE ON [/bold white on red]"
+            
             # First row: App name and version
             table.add_row(
-                "[bold cyan]StarLogs[/bold cyan] [dim]by Ozy311[/dim] [yellow]FOR THE CUBE![/yellow]",
+                f"[bold cyan]StarLogs v{__version__}[/bold cyan] [dim]by Ozy311[/dim] [yellow]FOR THE CUBE![/yellow]{debug_indicator}",
                 f"[bold green]{self.version}[/bold green]",
                 f"[bold]Mode:[/bold] {self.view_mode.upper()}  [dim]|[/dim]  Lines: {self.stats['total_lines']}"
             )
@@ -316,6 +326,45 @@ class TUIConsole:
             
             return  # Don't process other keys in edit mode
         
+        # Handle poll_interval editing mode
+        if self.options_editing and selected_item == 'poll_interval':
+            if key == b'\r':  # Enter - save the poll interval
+                if self.poll_interval_input_buffer:
+                    try:
+                        new_interval = float(self.poll_interval_input_buffer)
+                        if 0.1 <= new_interval <= 10.0:
+                            self.config_manager.set('poll_interval', new_interval)
+                            self.options_editing = False
+                            self.poll_interval_input_buffer = ""
+                        else:
+                            # Invalid range - clear buffer to show error
+                            self.poll_interval_input_buffer = "ERR"
+                    except ValueError:
+                        self.poll_interval_input_buffer = "ERR"
+                else:
+                    # Cancel if buffer is empty
+                    self.options_editing = False
+                    self.poll_interval_input_buffer = ""
+            
+            elif key == b'\x1b':  # ESC - cancel editing
+                self.options_editing = False
+                self.poll_interval_input_buffer = ""
+            
+            elif key == b'\x08' or key == b'\x7f':  # Backspace
+                if self.poll_interval_input_buffer:
+                    self.poll_interval_input_buffer = self.poll_interval_input_buffer[:-1]
+            
+            elif key.isdigit() or key == b'.':  # Number or decimal point input
+                char = key.decode()
+                # Only allow one decimal point
+                if char == '.' and '.' in self.poll_interval_input_buffer:
+                    return
+                # Limit length to 4 chars (e.g., "10.0")
+                if len(self.poll_interval_input_buffer) < 4:
+                    self.poll_interval_input_buffer += char
+            
+            return  # Don't process other keys in edit mode
+        
         # Arrow keys for navigation (only when not editing)
         if key == b'H':  # Up arrow
             if not self.options_editing:
@@ -332,10 +381,20 @@ class TUIConsole:
                 self.options_editing = True
                 self.port_input_buffer = ""  # Start fresh
             
+            elif selected_item == 'poll_interval':
+                # Start editing poll interval
+                self.options_editing = True
+                self.poll_interval_input_buffer = ""  # Start fresh
+            
             elif selected_item in ['auto_detect', 'debug_mode']:
                 # Toggle boolean option
                 current = self.config_manager.get(selected_item, True)
-                self.config_manager.set(selected_item, not current)
+                new_value = not current
+                self.config_manager.set(selected_item, new_value)
+                
+                # If debug mode was toggled, call callback immediately
+                if selected_item == 'debug_mode' and self.on_debug_toggle:
+                    self.on_debug_toggle(new_value)
     
     def clear_logs(self):
         """Clear all log buffers."""
@@ -361,6 +420,7 @@ class TUIConsole:
         
         # Get current settings
         port = self.config_manager.get('web_port', 8080) if self.config_manager else 8080
+        poll_interval = self.config_manager.get('poll_interval', 1.0) if self.config_manager else 1.0
         debug = self.config_manager.get('debug_mode', False) if self.config_manager else False
         auto_detect = self.config_manager.get('auto_detect', True) if self.config_manager else True
         
@@ -384,6 +444,17 @@ class TUIConsole:
             port_display = f"[yellow]{port}[/yellow]"
         table.add_row("Web Server Port:", port_display)
         
+        # Poll interval option
+        if selected_item == 'poll_interval':
+            if self.options_editing and self.poll_interval_input_buffer:
+                # Show current input buffer with cursor
+                interval_display = f"[black on yellow] {self.poll_interval_input_buffer}█ [/black on yellow]"
+            else:
+                interval_display = f"[black on yellow] {poll_interval}s [/black on yellow]{editing_indicator}"
+        else:
+            interval_display = f"[yellow]{poll_interval}s[/yellow]"
+        table.add_row("Log Poll Interval:", interval_display)
+        
         # Auto-detect option
         auto_status = "[green]Enabled[/green]" if auto_detect else "[red]Disabled[/red]"
         if selected_item == 'auto_detect':
@@ -400,11 +471,15 @@ class TUIConsole:
         if self.options_editing and selected_item == 'port':
             table.add_row("", "[dim yellow]Type new port (1024-65535), Backspace to delete[/dim yellow]")
             table.add_row("", "[dim yellow]Enter: Save  ESC: Cancel[/dim yellow]")
+        elif self.options_editing and selected_item == 'poll_interval':
+            table.add_row("", "[dim yellow]Type interval in seconds (0.1-10.0), Backspace to delete[/dim yellow]")
+            table.add_row("", "[dim yellow]Enter: Save  ESC: Cancel[/dim yellow]")
         else:
             table.add_row("", "[dim]↑/↓: Navigate  Enter/Space: Edit/Toggle[/dim]")
             table.add_row("", "[dim]ESC/Q: Save & Exit[/dim]")
         table.add_row("", "")
-        table.add_row("[dim]Note:", "[dim yellow]Changes require restarting StarLogs[/dim yellow]")
+        table.add_row("[dim]Note:", "[dim yellow]Port/Poll Interval require restart[/dim yellow]")
+        table.add_row("", "[dim green]Debug Mode takes effect immediately[/dim green]")
         
         return Panel(
             table,
@@ -497,6 +572,7 @@ class TUIConsole:
                     self.options_selected_index = 0  # Reset selection
                     self.options_editing = False
                     self.port_input_buffer = ""  # Clear input buffer
+                    self.poll_interval_input_buffer = ""  # Clear input buffer
                     self.set_view_mode('options')
                 elif key in (b'a', b'A'):
                     _log("A key detected - opening about")
@@ -505,14 +581,17 @@ class TUIConsole:
                     _log("ESC key detected")
                     if self.view_mode in ['options', 'about']:
                         _log("Returning from modal view")
-                        if self.options_editing and self.options_items[self.options_selected_index] == 'port':
-                            # Cancel port editing only
+                        selected = self.options_items[self.options_selected_index]
+                        if self.options_editing and selected in ['port', 'poll_interval']:
+                            # Cancel editing only
                             self.options_editing = False
                             self.port_input_buffer = ""
+                            self.poll_interval_input_buffer = ""
                         else:
                             # Exit modal
                             self.options_editing = False
                             self.port_input_buffer = ""
+                            self.poll_interval_input_buffer = ""
                             self.return_from_modal()
                 # Options modal navigation
                 elif self.view_mode == 'options':
@@ -556,14 +635,14 @@ class TUIConsole:
         with Live(
             self.render(),
             console=self.console,
-            refresh_per_second=2,  # Reduced from 4 for better performance
+            refresh_per_second=10,  # Match log monitor polling rate for real-time updates
             screen=True
         ) as live:
             self.live = live
             
             while self.running:
                 live.update(self.render())
-                time.sleep(0.5)  # Reduced from 0.25 to match refresh rate
+                time.sleep(0.1)  # Update 10x per second to match log polling
         
         # TUI has exited - now call pending callback if set
         if self.pending_callback:

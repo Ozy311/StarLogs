@@ -8,15 +8,12 @@ echo ========================================
 echo.
 
 REM Clean previous build
-if exist "starlogs.dist" (
+if exist "dist\nuitka" (
     echo Cleaning previous Nuitka build...
-    rmdir /s /q starlogs.dist
+    rmdir /s /q dist\nuitka
 )
-if exist "starlogs.build" (
-    rmdir /s /q starlogs.build
-)
-if exist "starlogs.onefile-build" (
-    rmdir /s /q starlogs.onefile-build
+if exist "build\build_nuitka" (
+    rmdir /s /q build\build_nuitka
 )
 
 echo.
@@ -36,16 +33,20 @@ echo.
     --include-data-dir=templates=templates ^
     --include-package=flask ^
     --include-package=psutil ^
-    --include-package=watchdog ^
     --include-package=rich ^
     --jobs=32 ^
-    --output-dir=dist ^
+    --output-filename=StarLogs.exe ^
+    --output-dir=build\build_nuitka ^
     --company-name=Ozy311 ^
     --product-name=StarLogs ^
     --file-version=0.8.3 ^
     --product-version=0.8.3 ^
     --file-description="Star Citizen Log Monitor and Analyzer" ^
     starlogs.py
+
+REM Move the output to dist\nuitka
+if not exist "dist\nuitka" mkdir dist\nuitka
+xcopy /E /I /Y "build\build_nuitka\starlogs.dist\*" "dist\nuitka\"
 
 if %errorlevel% neq 0 (
     echo.
@@ -61,12 +62,12 @@ echo ========================================
 echo Build Successful!
 echo ========================================
 echo.
-echo Executable location: dist\starlogs.dist\StarLogs.exe
+echo Executable location: dist\nuitka\StarLogs.exe
 echo.
 
 REM Test the executable
 echo Testing executable...
-"dist\starlogs.dist\StarLogs.exe" --help
+"dist\nuitka\StarLogs.exe" --help
 
 if %errorlevel% equ 0 (
     echo.

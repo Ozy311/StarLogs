@@ -20,7 +20,11 @@ class EventType(Enum):
     FPS_PVE_KILL = "fps_pve_kill"  # Player killed NPC (on foot)
     FPS_PVP_KILL = "fps_pvp_kill"  # Player killed player (on foot)
     FPS_DEATH = "fps_death"  # Player was killed (on foot)
+    SUICIDE = "suicide"  # Player killed themselves
     ACTOR_STALL = "actor_stall"  # Game disconnect/crash/stall
+    VEHICLE_DESTROY_SOFT = "vehicle_destroy_soft"  # Vehicle disabled/crippled (0→1)
+    VEHICLE_DESTROY_FULL = "vehicle_destroy_full"  # Vehicle fully destroyed (→2)
+    CORPSE = "corpse"  # Player corpse state (death confirmation)
     UNKNOWN = "unknown"
 
 
@@ -68,6 +72,20 @@ class EventParser:
         re.IGNORECASE
     )
     
+    # Vehicle destruction pattern: <Vehicle Destruction> CVehicle::OnAdvanceDestroyLevel
+    # Captures: vehicle_name, vehicle_id, zone, pos_x, pos_y, pos_z, vel_x, vel_y, vel_z, driver_name, driver_id, from_level, to_level, attacker_name, attacker_id, damage_type
+    VEHICLE_DESTROY_PATTERN = re.compile(
+        r"<Vehicle Destruction> CVehicle::OnAdvanceDestroyLevel: Vehicle '([^']+)' \[(\d+)\] in zone '([^']+)' \[pos x: ([-\d.]+), y: ([-\d.]+), z: ([-\d.]+) vel x: ([-\d.]+), y: ([-\d.]+), z: ([-\d.]+)\] driven by '([^']+)' \[(\d+)\] advanced from destroy level (\d+) to (\d+) caused by '([^']+)' \[(\d+)\] with '([^']+)'",
+        re.IGNORECASE
+    )
+    
+    # Corpse pattern: <[ActorState] Corpse> Player 'Name' <remote client>: IsCorpseEnabled/DoesLocationContainHospital/Running corpsify
+    # Captures: player_name, corpse_status (message after colon)
+    CORPSE_PATTERN = re.compile(
+        r"<\[ActorState\] Corpse>.*?Player '([^']+)'.*?:\s*(.+?)\s*\[Team_",
+        re.IGNORECASE
+    )
+    
     # NPC name indicators
     NPC_INDICATORS = [
         'PU_Pilots',
@@ -109,6 +127,22 @@ class EventParser:
         """
         timestamp = self.extract_timestamp(line)
         
+        # Check for corpse events
+        corpse_match = self.CORPSE_PATTERN.search(line)
+        if corpse_match:
+            player = corpse_match.group(1)
+            status = corpse_match.group(2).strip()
+            return LogEvent(
+                event_type=EventType.CORPSE,
+                timestamp=timestamp,
+                raw_line=line.strip(),
+                details={
+                    'type': 'corpse',
+                    'player': player,
+                    'status': status
+                }
+            )
+        
         # Check for Actor Stall (primary disconnect indicator)
         actor_stall_match = self.ACTOR_STALL_PATTERN.search(line)
         if actor_stall_match:
@@ -126,6 +160,11 @@ class EventParser:
                     'length': stall_length
                 }
             )
+        
+        # Check for vehicle destruction events
+        vehicle_destroy_match = self.VEHICLE_DESTROY_PATTERN.search(line)
+        if vehicle_destroy_match:
+            return self._parse_vehicle_destroy_event(line, timestamp, vehicle_destroy_match)
         
         # Check for kill events (more specific, check first)
         kill_match = self.KILL_PATTERN.search(line)
@@ -222,32 +261,36 @@ class EventParser:
         # Zones often contain ship names like "ORIG_890Jump_6166775878721"
         ship_info = self._extract_ship_from_zone(zone)
         
-        # Determine kill type
-        is_npc_victim = self._is_npc(victim_name)
-        is_npc_killer = self._is_npc(killer_name)
-        is_fps_kill = damage_type.lower() == 'bullet'  # FPS combat uses 'Bullet' damage type
-        
-        # Classify the event (FPS vs Vehicle combat)
-        if is_fps_kill:
-            # FPS combat (on foot)
-            if is_npc_killer and not is_npc_victim:
-                event_type = EventType.FPS_DEATH  # Player killed by NPC on foot
-            elif not is_npc_killer and is_npc_victim:
-                event_type = EventType.FPS_PVE_KILL  # Player killed NPC on foot
-            elif not is_npc_killer and not is_npc_victim:
-                event_type = EventType.FPS_PVP_KILL  # Player killed player on foot
-            else:
-                event_type = EventType.KILL  # NPC killed NPC (generic)
+        # Check for suicide first (killer == victim)
+        if killer_name == victim_name and killer_id == victim_id:
+            event_type = EventType.SUICIDE
         else:
-            # Vehicle combat
-            if is_npc_killer and not is_npc_victim:
-                event_type = EventType.DEATH  # Player killed by NPC (vehicle)
-            elif not is_npc_killer and is_npc_victim:
-                event_type = EventType.PVE_KILL  # Player killed NPC (vehicle)
-            elif not is_npc_killer and not is_npc_victim:
-                event_type = EventType.PVP_KILL  # Player killed player (vehicle)
+            # Determine kill type
+            is_npc_victim = self._is_npc(victim_name)
+            is_npc_killer = self._is_npc(killer_name)
+            is_fps_kill = damage_type.lower() == 'bullet'  # FPS combat uses 'Bullet' damage type
+            
+            # Classify the event (FPS vs Vehicle combat)
+            if is_fps_kill:
+                # FPS combat (on foot)
+                if is_npc_killer and not is_npc_victim:
+                    event_type = EventType.FPS_DEATH  # Player killed by NPC on foot
+                elif not is_npc_killer and is_npc_victim:
+                    event_type = EventType.FPS_PVE_KILL  # Player killed NPC on foot
+                elif not is_npc_killer and not is_npc_victim:
+                    event_type = EventType.FPS_PVP_KILL  # Player killed player on foot
+                else:
+                    event_type = EventType.KILL  # NPC killed NPC (generic)
             else:
-                event_type = EventType.KILL  # NPC killed NPC (generic)
+                # Vehicle combat
+                if is_npc_killer and not is_npc_victim:
+                    event_type = EventType.DEATH  # Player killed by NPC (vehicle)
+                elif not is_npc_killer and is_npc_victim:
+                    event_type = EventType.PVE_KILL  # Player killed NPC (vehicle)
+                elif not is_npc_killer and not is_npc_victim:
+                    event_type = EventType.PVP_KILL  # Player killed player (vehicle)
+                else:
+                    event_type = EventType.KILL  # NPC killed NPC (generic)
         
         details = {
             'victim': victim_name,
@@ -276,6 +319,122 @@ class EventParser:
             raw_line=line.strip(),
             details=details
         )
+    
+    def _parse_vehicle_destroy_event(self, line: str, timestamp: Optional[datetime], 
+                                      match: re.Match) -> LogEvent:
+        """
+        Parse vehicle destruction event details from regex match.
+        
+        Args:
+            line: Raw log line
+            timestamp: Extracted timestamp
+            match: Regex match object
+            
+        Returns:
+            LogEvent with vehicle destruction details
+        """
+        vehicle_name = match.group(1)
+        vehicle_id = match.group(2)
+        zone = match.group(3)
+        pos_x = match.group(4)
+        pos_y = match.group(5)
+        pos_z = match.group(6)
+        vel_x = match.group(7)
+        vel_y = match.group(8)
+        vel_z = match.group(9)
+        driver_name = match.group(10)
+        driver_id = match.group(11)
+        from_level = int(match.group(12))
+        to_level = int(match.group(13))
+        attacker_name = match.group(14)
+        attacker_id = match.group(15)
+        damage_type = match.group(16)
+        
+        # Extract ship name from vehicle_name
+        ship_name = self._extract_ship_from_vehicle(vehicle_name)
+        
+        # Determine if attacker is NPC (for PvP/PvE classification)
+        is_npc_attacker = self._is_npc(attacker_name)
+        
+        # Determine event type based on destination level
+        if to_level == 1:
+            event_type = EventType.VEHICLE_DESTROY_SOFT  # Soft death (disabled/crippled)
+        else:  # to_level == 2
+            event_type = EventType.VEHICLE_DESTROY_FULL  # Full destruction
+        
+        details = {
+            'vehicle': vehicle_name,
+            'vehicle_id': vehicle_id,
+            'ship_name': ship_name,
+            'zone': zone,
+            'position': {
+                'x': float(pos_x),
+                'y': float(pos_y),
+                'z': float(pos_z)
+            },
+            'velocity': {
+                'x': float(vel_x),
+                'y': float(vel_y),
+                'z': float(vel_z)
+            },
+            'driver': driver_name,
+            'driver_id': driver_id,
+            'from_level': from_level,
+            'to_level': to_level,
+            'attacker': attacker_name,
+            'attacker_id': attacker_id,
+            'damage_type': damage_type,
+            'is_pvp': not is_npc_attacker,
+            'is_pve': is_npc_attacker,
+            'crew_count': 0,  # Will be populated by correlation logic
+            'crew_names': []  # Will be populated by correlation logic
+        }
+        
+        return LogEvent(
+            event_type=event_type,
+            timestamp=timestamp,
+            raw_line=line.strip(),
+            details=details
+        )
+    
+    def _extract_ship_from_vehicle(self, vehicle_name: str) -> Optional[str]:
+        """
+        Extract ship name from vehicle identifier.
+        
+        Examples:
+            'ANVL_Paladin_6763231335005' -> 'Paladin'
+            'RSI_Polaris_5566652694270' -> 'Polaris'
+            'ORIG_325a_6568518792051' -> '325a'
+        
+        Args:
+            vehicle_name: Vehicle identifier string
+            
+        Returns:
+            Extracted ship name or None
+        """
+        if not vehicle_name:
+            return None
+        
+        # Common ship patterns: MANUFACTURER_ShipName_ID
+        patterns = [
+            # Manufacturer_ShipName_ID format
+            r'(?:ORIG|AEGS|ANVL|CRUS|MISC|RSI|DRAK|ARGO|ESPR|KLWE)_([A-Za-z0-9_]+?)_\d+',
+            # ShipName_ID format (fallback)
+            r'([A-Za-z][A-Za-z0-9_]+)_\d{10,}',
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, vehicle_name, re.IGNORECASE)
+            if match:
+                ship_name = match.group(1)
+                # Format the name (add spaces before capitals, handle numbers)
+                formatted = re.sub(r'(\d+)([A-Z])', r'\1 \2', ship_name)
+                formatted = re.sub(r'([a-z])([A-Z])', r'\1 \2', formatted)
+                # Remove trailing underscores
+                formatted = formatted.replace('_', ' ').strip()
+                return formatted
+        
+        return vehicle_name  # Return original if no pattern matches
     
     def extract_system_info(self, log_lines: List[str]) -> Dict[str, Any]:
         """
