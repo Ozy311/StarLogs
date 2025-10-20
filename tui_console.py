@@ -203,7 +203,9 @@ class TUIConsole:
     def generate_game_panel(self) -> Panel:
         """Generate game log panel."""
         with self.lock:
-            text = Text("\n".join(list(self.game_logs)))
+            # When word_wrap is False, we want no_wrap=True (truncate lines)
+            # When word_wrap is True, we want no_wrap=False (allow wrapping)
+            text = Text("\n".join(list(self.game_logs)), no_wrap=not self.word_wrap)
         
         # Add word wrap indicator to subtitle
         wrap_indicator = " [dim cyan]↩ wrap[/dim cyan]" if self.word_wrap else " [dim cyan]→ nowrap[/dim cyan]"
@@ -212,14 +214,15 @@ class TUIConsole:
             text,
             title="[bold cyan]Game Logs[/bold cyan]",
             border_style="cyan",
-            subtitle=f"[dim]{len(self.game_logs)}/{self.max_lines} lines{wrap_indicator}[/dim]",
-            overflow="fold" if self.word_wrap else "crop"
+            subtitle=f"[dim]{len(self.game_logs)}/{self.max_lines} lines{wrap_indicator}[/dim]"
         )
     
     def generate_web_panel(self) -> Panel:
         """Generate web server log panel."""
         with self.lock:
-            text = Text("\n".join(list(self.web_logs)))
+            # When word_wrap is False, we want no_wrap=True (truncate lines)
+            # When word_wrap is True, we want no_wrap=False (allow wrapping)
+            text = Text("\n".join(list(self.web_logs)), no_wrap=not self.word_wrap)
         
         # Add word wrap indicator to subtitle
         wrap_indicator = " [dim yellow]↩ wrap[/dim yellow]" if self.word_wrap else " [dim yellow]→ nowrap[/dim yellow]"
@@ -228,8 +231,7 @@ class TUIConsole:
             text,
             title="[bold yellow]Web Server Logs[/bold yellow]",
             border_style="yellow",
-            subtitle=f"[dim]{len(self.web_logs)}/{self.max_lines} lines{wrap_indicator}[/dim]",
-            overflow="fold" if self.word_wrap else "crop"
+            subtitle=f"[dim]{len(self.web_logs)}/{self.max_lines} lines{wrap_indicator}[/dim]"
         )
     
     def generate_footer(self) -> Panel:
