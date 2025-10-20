@@ -497,7 +497,20 @@ class StarLogs:
         return {
             'web_port': self.config_manager.get('web_port', 8080),
             'auto_detect': self.config_manager.get('auto_detect', True),
-            'debug_mode': self.config_manager.get('debug_mode', False)
+            'debug_mode': self.config_manager.get('debug_mode', False),
+            'badge_visibility': self.config_manager.get('badge_visibility', {
+                'pve': True,
+                'pvp': True,
+                'deaths': True,
+                'fps_pve': True,
+                'fps_pvp': True,
+                'fps_death': True,
+                'disconnects': True,
+                'vehicle_soft': True,
+                'vehicle_full': True,
+                'corpse': True,
+                'suicide': True
+            })
         }
     
     def update_config_callback(self, updates: dict) -> dict:
@@ -512,7 +525,7 @@ class StarLogs:
         """
         try:
             # Only allow updating certain fields
-            allowed_fields = ['web_port', 'auto_detect', 'debug_mode']
+            allowed_fields = ['web_port', 'auto_detect', 'debug_mode', 'badge_visibility']
             
             for key, value in updates.items():
                 if key in allowed_fields:
