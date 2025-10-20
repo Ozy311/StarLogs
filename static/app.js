@@ -474,10 +474,36 @@ class StarLogsApp {
     }
     
     toggleTheme() {
-        const currentTheme = document.body.classList.contains('light-mode') ? 'light' : 'dark';
-        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-        this.setTheme(newTheme);
-        this.themeSelect.value = newTheme;
+        // Toggle between dark and light mode
+        const html = document.documentElement;
+        const currentMode = html.getAttribute('data-theme') || 'dark';
+        const newMode = currentMode === 'dark' ? 'light' : 'dark';
+        
+        html.setAttribute('data-theme', newMode);
+        localStorage.setItem('starlogger-theme', newMode);
+        
+        // Update theme toggle button icon and title
+        const themeBtn = document.getElementById('theme-toggle-btn');
+        if (themeBtn) {
+            const icon = themeBtn.querySelector('i');
+            if (icon) {
+                if (newMode === 'light') {
+                    icon.className = 'fas fa-moon';
+                    themeBtn.title = 'Light Mode (click to toggle to Dark Mode)';
+                } else {
+                    icon.className = 'fas fa-sun';
+                    themeBtn.title = 'Dark Mode (click to toggle to Light Mode)';
+                }
+            }
+        }
+        
+        // Apply light mode class to body if needed
+        const body = document.body;
+        if (newMode === 'light') {
+            body.classList.add('light-mode');
+        } else {
+            body.classList.remove('light-mode');
+        }
     }
     
     loadLogPreferences() {
