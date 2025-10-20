@@ -848,6 +848,7 @@ class StarLogsApp {
         
         this.connectionStatus.textContent = 'Connecting...';
         this.connectionStatus.className = 'status-value';
+        this.updateConnectionIcon('connecting');
         
         this.eventSource = new EventSource('/events');
         
@@ -855,6 +856,7 @@ class StarLogsApp {
             console.log('SSE connection opened');
             this.connectionStatus.textContent = 'Connected';
             this.connectionStatus.className = 'status-value connected';
+            this.updateConnectionIcon('connected');
             this.reconnectAttempts = 0;
         };
         
@@ -871,6 +873,7 @@ class StarLogsApp {
             console.error('SSE connection error');
             this.connectionStatus.textContent = 'Disconnected';
             this.connectionStatus.className = 'status-value disconnected';
+            this.updateConnectionIcon('disconnected');
             
             this.eventSource.close();
             
@@ -881,6 +884,31 @@ class StarLogsApp {
                 setTimeout(() => this.connect(), delay);
             }
         };
+    }
+    
+    updateConnectionIcon(state) {
+        const connectionBtn = document.getElementById('connection-btn');
+        if (!connectionBtn) return;
+        
+        const icon = connectionBtn.querySelector('i');
+        if (!icon) return;
+        
+        if (state === 'connected') {
+            connectionBtn.classList.remove('disconnected');
+            connectionBtn.style.color = 'var(--accent-green)';
+            icon.className = 'fas fa-wifi';
+            connectionBtn.title = 'Server Connection Status: Connected';
+        } else if (state === 'disconnected') {
+            connectionBtn.classList.add('disconnected');
+            connectionBtn.style.color = 'var(--accent-red)';
+            icon.className = 'fas fa-wifi-slash';
+            connectionBtn.title = 'Server Connection Status: Disconnected';
+        } else if (state === 'connecting') {
+            connectionBtn.classList.remove('disconnected');
+            connectionBtn.style.color = 'var(--accent-yellow)';
+            icon.className = 'fas fa-wifi';
+            connectionBtn.title = 'Server Connection Status: Connecting...';
+        }
     }
     
     handleMessage(data) {
