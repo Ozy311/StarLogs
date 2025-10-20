@@ -73,18 +73,27 @@
                     <span class="toggle-icon" id="events-toggle">▼</span>
                     Event Summary
                 </h2>
-                <div class="summary-counts" onclick="event.stopPropagation()">
-                    <span class="count-badge pve active" id="pve-count" data-filter="pve">0 Ship PvE</span>
-                    <span class="count-badge pvp active" id="pvp-count" data-filter="pvp">0 Ship PvP</span>
-                    <span class="count-badge death active" id="death-count" data-filter="deaths">0 Deaths</span>
-                    <span class="count-badge fps-pve active" id="fps-pve-count" data-filter="fps_pve">0 FPS PvE</span>
-                    <span class="count-badge fps-pvp active" id="fps-pvp-count" data-filter="fps_pvp">0 FPS PvP</span>
-                    <span class="count-badge fps-death active" id="fps-death-count" data-filter="fps_death">0 FPS Death</span>
-                    <span class="count-badge suicide active" id="suicide-count" data-filter="suicide">0 Suicides</span>
-                    <span class="count-badge corpse active" id="corpse-count" data-filter="corpse">0 Corpses</span>
-                    <span class="count-badge disconnect active" id="disconnect-count" data-filter="disconnects">0 Stalls</span>
-                    <span class="count-badge vehicle-soft active" id="vehicle-soft-count" data-filter="vehicle_soft">0 Soft</span>
-                    <span class="count-badge vehicle-full active" id="vehicle-full-count" data-filter="vehicle_full">0 Full</span>
+            </div>
+            <div class="badges-section">
+                <div class="badges-header">
+                    <button id="badges-toggle-btn" class="badges-toggle" onclick="toggleBadges(event)" title="Show/hide filters">
+                        <span class="badges-toggle-icon">▼</span>
+                        <span class="badges-label">Filters</span>
+                    </button>
+                    <button id="invert-badges-btn" class="btn-invert" title="Invert all filter selections">⇅ Invert</button>
+                </div>
+                <div id="badges-content" class="summary-counts" onclick="event.stopPropagation()">
+                    <span class="count-badge pve active" id="pve-count" data-filter="pve" title="Click to hide/show">0 Ship PvE</span>
+                    <span class="count-badge pvp active" id="pvp-count" data-filter="pvp" title="Click to hide/show">0 Ship PvP</span>
+                    <span class="count-badge death active" id="death-count" data-filter="deaths" title="Click to hide/show">0 Deaths</span>
+                    <span class="count-badge fps-pve active" id="fps-pve-count" data-filter="fps_pve" title="Click to hide/show">0 FPS PvE</span>
+                    <span class="count-badge fps-pvp active" id="fps-pvp-count" data-filter="fps_pvp" title="Click to hide/show">0 FPS PvP</span>
+                    <span class="count-badge fps-death active" id="fps-death-count" data-filter="fps_death" title="Click to hide/show">0 FPS Death</span>
+                    <span class="count-badge suicide active" id="suicide-count" data-filter="suicide" title="Click to hide/show">0 Suicides</span>
+                    <span class="count-badge corpse active" id="corpse-count" data-filter="corpse" title="Click to hide/show">0 Corpses</span>
+                    <span class="count-badge disconnect active" id="disconnect-count" data-filter="disconnects" title="Click to hide/show">0 Stalls</span>
+                    <span class="count-badge vehicle-soft active" id="vehicle-soft-count" data-filter="vehicle_soft" title="Click to hide/show">0 Soft</span>
+                    <span class="count-badge vehicle-full active" id="vehicle-full-count" data-filter="vehicle_full" title="Click to hide/show">0 Full</span>
                 </div>
             </div>
             <div id="events-content" class="section-content">

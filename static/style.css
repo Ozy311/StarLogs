@@ -394,6 +394,98 @@ header h1 .tagline {
     padding: 4px 0;
 }
 
+.badges-section {
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-color);
+    padding: 12px 20px;
+    flex-shrink: 0;
+}
+
+.badges-header {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 10px;
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+    margin-bottom: 10px;
+}
+
+.badges-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    background: var(--bg-secondary);
+    border: 1px solid var(--accent-blue);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.badges-toggle:hover {
+    background: var(--bg-primary);
+    box-shadow: 0 0 12px rgba(84, 173, 247, 0.4);
+    transform: scale(1.05);
+}
+
+.badges-toggle:active {
+    transform: scale(0.95);
+}
+
+.badges-toggle-icon {
+    display: inline-block;
+    width: 16px;
+    transition: transform 0.3s;
+}
+
+.badges-toggle-icon.collapsed {
+    transform: rotate(-90deg);
+}
+
+#badges-content.collapsed {
+    display: none;
+}
+
+.summary-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-shrink: 0;
+    margin-right: 10px;
+}
+
+.btn-invert {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    background: var(--bg-secondary);
+    border: 1px solid var(--accent-blue);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.btn-invert:hover {
+    background: var(--bg-primary);
+    box-shadow: 0 0 12px rgba(84, 173, 247, 0.4);
+    transform: scale(1.05);
+}
+
+.btn-invert:active {
+    transform: scale(0.95);
+}
+
 .count-badge {
     padding: 5px 12px;
     border-radius: 12px;
@@ -497,26 +589,31 @@ header h1 .tagline {
 
 .controls input[type="checkbox"] {
     cursor: pointer;
+    width: 16px;
+    height: 16px;
 }
 
-.controls button,
-.log-controls-inline button {
-    background: var(--bg-tertiary);
-    color: white;
-    border: 2px solid #54ADF7;
-    padding: 6px 16px;
-    border-radius: 4px;
+.controls button {
+    padding: 8px 16px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--accent-blue);
+    color: var(--text-primary);
+    border-radius: 6px;
     cursor: pointer;
     font-size: 0.9rem;
-    transition: all 0.2s;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    white-space: nowrap;
 }
 
-.controls button:hover,
-.log-controls-inline button:hover {
-    background: var(--bg-secondary);
-    border-color: #F5AC1A;
+.controls button:hover {
+    background: var(--bg-primary);
     box-shadow: 0 0 12px rgba(84, 173, 247, 0.4);
-    transform: translateY(-1px);
+    transform: scale(1.05);
+}
+
+.controls button:active {
+    transform: scale(0.95);
 }
 
 .log-controls-inline {
