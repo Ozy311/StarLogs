@@ -42,6 +42,7 @@ class WebServer:
         """Initialize the web server."""
         self.port = port
         self.app = Flask(__name__)
+        self.app.json.ensure_ascii = False  # Allow non-ASCII characters in JSON
         self.event_parser = EventParser()
         
         # Queues for SSE clients
@@ -376,6 +377,45 @@ class WebServer:
                     if hasattr(self, 'update_config_callback') and self.update_config_callback:
                         result = self.update_config_callback(data)
                         return jsonify(result)
+                    
+                    return jsonify({'status': 'error', 'message': 'Config update not available'}), 500
+                except Exception as e:
+                    return jsonify({'status': 'error', 'message': str(e)}), 500
+        
+        @self.app.route('/api/badge_visibility', methods=['GET', 'POST'])
+        def badge_visibility():
+            """Get or update badge visibility preferences."""
+            if request.method == 'GET':
+                # Return current badge visibility settings
+                if hasattr(self, 'get_config_callback') and self.get_config_callback:
+                    config = self.get_config_callback()
+                    badge_visibility = config.get('badge_visibility', {
+                        'pve': True,
+                        'pvp': True,
+                        'deaths': True,
+                        'fps_pve': True,
+                        'fps_pvp': True,
+                        'fps_death': True,
+                        'disconnects': True,
+                        'vehicle_soft': True,
+                        'vehicle_full': True,
+                        'corpse': True,
+                        'suicide': True
+                    })
+                    return jsonify(badge_visibility)
+                return jsonify({}), 500
+            
+            elif request.method == 'POST':
+                # Update badge visibility settings
+                try:
+                    data = request.get_json()
+                    
+                    if hasattr(self, 'update_config_callback') and self.update_config_callback:
+                        result = self.update_config_callback({'badge_visibility': data})
+                        if result.get('status') == 'success':
+                            return jsonify({'status': 'success', 'badge_visibility': data})
+                        else:
+                            return jsonify(result), 500
                     
                     return jsonify({'status': 'error', 'message': 'Config update not available'}), 500
                 except Exception as e:
