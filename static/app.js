@@ -2089,12 +2089,26 @@ function toggleSection(sectionId) {
     const content = document.getElementById(`${sectionId}-content`);
     const toggle = document.getElementById(`${sectionId}-toggle`);
     
+    // Get the main section container
+    const sectionContainer = sectionId === 'events' ? 
+        document.querySelector('.summary-section') : 
+        document.querySelector('.log-section');
+    
+    // For events section, also toggle badges-section
+    const badgesSection = sectionId === 'events' ? document.querySelector('.badges-section') : null;
+    
     if (content.classList.contains('collapsed')) {
+        // Expand
         content.classList.remove('collapsed');
+        if (badgesSection) badgesSection.classList.remove('collapsed');
+        if (sectionContainer) sectionContainer.classList.remove('collapsed');
         toggle.classList.remove('collapsed');
         toggle.textContent = '▼';
     } else {
+        // Collapse - hide everything except header
         content.classList.add('collapsed');
+        if (badgesSection) badgesSection.classList.add('collapsed');
+        if (sectionContainer) sectionContainer.classList.add('collapsed');
         toggle.classList.add('collapsed');
         toggle.textContent = '▶';
     }
