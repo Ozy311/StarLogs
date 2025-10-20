@@ -8,7 +8,10 @@ class StarLogsApp {
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 10;
         
-        // Event filters
+        // Badges visibility state
+        this.badgesVisible = true;
+        
+        // Event filters - initialize from saved state if available
         this.filters = {
             pve: true,
             pvp: true,
@@ -19,7 +22,8 @@ class StarLogsApp {
             disconnects: true,
             vehicle_soft: true,
             vehicle_full: true,
-            corpse: true
+            corpse: true,
+            suicide: true
         };
         
         // Event counters
@@ -39,7 +43,9 @@ class StarLogsApp {
         };
         
         this.initializeElements();
-        this.attachEventListeners();
+        this.loadLogPreferences(); // Load UI preferences FIRST
+        this.attachEventListeners(); // Attach listeners BEFORE loading badge visibility
+        this.loadBadgeVisibility(); // Load badge visibility AFTER listeners are attached
         this.initializeResizer();
         this.loadVersions();
         this.connect();
@@ -144,8 +150,35 @@ class StarLogsApp {
                 this.filters[filterName] = !this.filters[filterName];
                 badge.classList.toggle('active');
                 this.filterEvents();
+                this.saveBadgeVisibility(); // Save changes immediately
             });
         });
+        
+        // Invert button
+        const invertBtn = document.getElementById('invert-badges-btn');
+        if (invertBtn) {
+            invertBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent triggering section collapse
+                // Invert all badge visibility
+                Object.keys(this.filters).forEach(key => {
+                    this.filters[key] = !this.filters[key];
+                });
+                
+                // Update UI
+                document.querySelectorAll('.count-badge[data-filter]').forEach(badge => {
+                    const filterName = badge.dataset.filter;
+                    if (this.filters[filterName]) {
+                        badge.classList.add('active');
+                    } else {
+                        badge.classList.remove('active');
+                    }
+                });
+                
+                // Refilter events and save
+                this.filterEvents();
+                this.saveBadgeVisibility();
+            });
+        }
         
         this.autoScrollCheckbox.addEventListener('change', (e) => {
             this.autoScroll = e.target.checked;
@@ -371,6 +404,23 @@ class StarLogsApp {
                 this.logOutput.classList.remove('wrap-text');
             }
         }
+        
+        // Load badges visibility preference (default: true - visible)
+        // Use a small delay to ensure DOM elements are ready
+        setTimeout(() => {
+            const savedBadgesVisible = localStorage.getItem('starlogger-badges-visible');
+            if (savedBadgesVisible === 'false') {
+                this.badgesVisible = false;
+                const badgesContent = document.getElementById('badges-content');
+                const badgesIcon = document.querySelector('.badges-toggle-icon');
+                if (badgesContent && badgesIcon) {
+                    badgesContent.classList.add('collapsed');
+                    badgesIcon.classList.add('collapsed');
+                    badgesIcon.textContent = '▶';
+                    console.log('[DEBUG] Badges collapsed state restored from localStorage');
+                }
+            }
+        }, 100);
     }
     
     // Version Management
@@ -1806,6 +1856,70 @@ class StarLogsApp {
             this.showMessage(`Failed to export: ${error.message}`, 'error');
         }
     }
+    
+    async loadBadgeVisibility() {
+        // Load badge visibility preferences from server and apply to UI
+        try {
+            console.log('[DEBUG] Starting loadBadgeVisibility...');
+            const response = await fetch('/api/badge_visibility');
+            const data = await response.json();
+            
+            console.log('[DEBUG] Loaded badge visibility from server:', data);
+            
+            // Update filters with loaded preferences
+            Object.keys(data).forEach(key => {
+                if (key in this.filters) {
+                    this.filters[key] = data[key];
+                    console.log(`[DEBUG] Set filter ${key} to ${data[key]}`);
+                }
+            });
+            
+            // Update UI to reflect loaded preferences
+            document.querySelectorAll('.count-badge[data-filter]').forEach(badge => {
+                const filterName = badge.dataset.filter;
+                const isActive = this.filters[filterName];
+                
+                console.log(`[DEBUG] Badge ${filterName}: isActive=${isActive}`);
+                
+                if (isActive) {
+                    badge.classList.add('active');
+                } else {
+                    badge.classList.remove('active');
+                }
+            });
+            
+            // Apply filtering to existing events
+            this.filterEvents();
+            
+            console.log('[DEBUG] Badge visibility fully loaded and applied');
+        } catch (e) {
+            console.error('Error loading badge visibility:', e);
+            // Use defaults if error
+            console.log('[DEBUG] Using default filter state (all active)');
+        }
+    }
+    
+    async saveBadgeVisibility() {
+        // Save current badge visibility preferences to server.
+        try {
+            const response = await fetch('/api/badge_visibility', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(this.filters)
+            });
+            
+            const result = await response.json();
+            if (result.status === 'success') {
+                console.log('[DEBUG] Badge visibility saved');
+            } else {
+                console.warn('Failed to save badge visibility:', result);
+            }
+        } catch (e) {
+            console.error('Error saving badge visibility:', e);
+        }
+    }
 }
 
 // Toggle section collapse
@@ -1821,6 +1935,25 @@ function toggleSection(sectionId) {
         content.classList.add('collapsed');
         toggle.classList.add('collapsed');
         toggle.textContent = '▶';
+    }
+}
+
+// Toggle badges visibility
+function toggleBadges(event) {
+    event.stopPropagation();
+    const badgesContent = document.getElementById('badges-content');
+    const badgesIcon = document.querySelector('.badges-toggle-icon');
+    
+    if (badgesContent.classList.contains('collapsed')) {
+        badgesContent.classList.remove('collapsed');
+        badgesIcon.classList.remove('collapsed');
+        badgesIcon.textContent = '▼';
+        localStorage.setItem('starlogger-badges-visible', 'true');
+    } else {
+        badgesContent.classList.add('collapsed');
+        badgesIcon.classList.add('collapsed');
+        badgesIcon.textContent = '▶';
+        localStorage.setItem('starlogger-badges-visible', 'false');
     }
 }
 
