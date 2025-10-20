@@ -2,7 +2,7 @@
 StarLogs Version Information
 """
 
-__version__ = "0.8.3"
+__version__ = "0.9.0"
 __author__ = "Ozy311"
 __organization__ = "CUBE Org"
 __tagline__ = "FOR THE CUBE!"
@@ -30,6 +30,9 @@ def get_about_info():
             'Real-time Star Citizen log monitoring',
             'PvE and PvP kill tracking (vehicle & FPS combat)',
             'FPS combat tracking with on-foot kills and deaths',
+            'Vehicle destruction tracking (Soft Death & Full Destruction)',
+            'Automatic crew kill correlation with vehicle destructions',
+            'Damage type color coding (Combat/Collision/SelfDestruct/GameRules)',
             'Player death detection',
             'Actor Stall and disconnect logging',
             'Ship/Location extraction from kill events',

@@ -7,6 +7,7 @@ Serves dashboard and provides real-time log streaming via SSE.
 from flask import Flask, render_template, Response, jsonify, request
 import json
 import queue
+import re
 import threading
 from typing import Optional, Dict, Any
 from event_parser import EventParser, LogEvent
@@ -16,10 +17,32 @@ from version import VERSION_INFO, get_about_info
 class WebServer:
     """Flask-based web server for StarLogs dashboard."""
     
+    @staticmethod
+    def check_port_available(port: int, host: str = '127.0.0.1') -> bool:
+        """
+        Check if a port is available for binding.
+        
+        Args:
+            port: Port number to check
+            host: Host address (default: 127.0.0.1)
+            
+        Returns:
+            True if port is available, False if already in use
+        """
+        import socket
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            sock.bind((host, port))
+            sock.close()
+            return True
+        except OSError:
+            return False
+    
     def __init__(self, port: int = 8080):
         """Initialize the web server."""
         self.port = port
         self.app = Flask(__name__)
+        self.app.json.ensure_ascii = False  # Allow non-ASCII characters in JSON
         self.event_parser = EventParser()
         
         # Queues for SSE clients
@@ -51,10 +74,21 @@ class WebServer:
             'fps_pvp_kills': 0,
             'fps_deaths': 0,
             'actor_stalls': 0,
+            'vehicle_destroy_soft': 0,
+            'vehicle_destroy_full': 0,
+            'vehicle_destroy_combat': 0,
+            'vehicle_destroy_collision': 0,
+            'vehicle_destroy_selfdestruct': 0,
+            'vehicle_destroy_gamerules': 0,
             'session_start': None,
             'log_path': None
         }
         self.stats_lock = threading.Lock()
+        
+        # Vehicle destruction tracking (for crew kill correlation)
+        # Maps vehicle_id -> {timestamp, event_data}
+        self.recent_vehicle_destructions = {}
+        self.vehicle_destruction_lock = threading.Lock()
         
         # Callbacks for version switching and installations
         self.get_installations_callback = None
@@ -65,6 +99,7 @@ class WebServer:
         self.remove_custom_path_callback = None
         self.get_config_callback = None
         self.update_config_callback = None
+        self.get_diagnostics_callback = None
         
         # Setup routes
         self._setup_routes()
@@ -75,7 +110,8 @@ class WebServer:
         @self.app.route('/')
         def index():
             """Serve the main dashboard."""
-            return render_template('index.html')
+            from version import __version__
+            return render_template('index.html', version=__version__)
         
         @self.app.route('/events')
         def events():
@@ -88,20 +124,28 @@ class WebServer:
                     self.sse_queues.append(client_queue)
                 
                 # Send event history FIRST so they show up right away
+                event_history_count = 0
                 with self.event_history_lock:
+                    event_history_count = len(self.event_history)
                     for event_data in self.event_history:
                         try:
                             client_queue.put_nowait(event_data)
                         except queue.Full:
+                            print(f"[WARNING] Client queue full when sending event history!")
                             break
                 
                 # Then send raw log line history
+                log_history_count = 0
                 with self.log_line_history_lock:
+                    log_history_count = len(self.log_line_history)
                     for log_data in self.log_line_history:
                         try:
                             client_queue.put_nowait(log_data)
                         except queue.Full:
+                            print(f"[WARNING] Client queue full when sending log history!")
                             break
+                
+                print(f"[DEBUG] New SSE client connected. Sent {event_history_count} events and {log_history_count} log lines from history")
                 
                 try:
                     while True:
@@ -130,6 +174,10 @@ class WebServer:
                 stats_data['game'] = self.get_game_status_callback()
             else:
                 stats_data['game'] = {'running': False, 'pid': None, 'memory_mb': None}
+            
+            # Add log monitor diagnostics
+            if hasattr(self, 'get_diagnostics_callback') and self.get_diagnostics_callback:
+                stats_data['monitor'] = self.get_diagnostics_callback()
             
             return jsonify(stats_data)
         
@@ -169,6 +217,13 @@ class WebServer:
                     self.stats['pve_kills'] = 0
                     self.stats['pvp_kills'] = 0
                     self.stats['actor_stalls'] = 0
+                    self.stats['suicides'] = 0
+                    self.stats['vehicle_destroy_soft'] = 0
+                    self.stats['vehicle_destroy_full'] = 0
+                    self.stats['vehicle_destroy_combat'] = 0
+                    self.stats['vehicle_destroy_collision'] = 0
+                    self.stats['vehicle_destroy_selfdestruct'] = 0
+                    self.stats['vehicle_destroy_gamerules'] = 0
                 
                 # Signal the main application to reprocess
                 if hasattr(self, 'reprocess_callback') and self.reprocess_callback:
@@ -177,6 +232,16 @@ class WebServer:
                 return jsonify({'status': 'success', 'message': 'Log reprocessing initiated'})
             except Exception as e:
                 return jsonify({'status': 'error', 'message': str(e)}), 500
+        
+        @self.app.route('/api/log_file', methods=['GET'])
+        def get_log_file():
+            """Get current log file path."""
+            with self.stats_lock:
+                log_file = self.stats.get('log_path')
+            
+            return jsonify({
+                'log_file': log_file
+            })
         
         @self.app.route('/api/versions', methods=['GET'])
         def get_versions():
@@ -226,6 +291,14 @@ class WebServer:
                     self.stats['pve_kills'] = 0
                     self.stats['pvp_kills'] = 0
                     self.stats['actor_stalls'] = 0
+                    self.stats['suicides'] = 0
+                    self.stats['corpses'] = 0
+                    self.stats['vehicle_destroy_soft'] = 0
+                    self.stats['vehicle_destroy_full'] = 0
+                    self.stats['vehicle_destroy_combat'] = 0
+                    self.stats['vehicle_destroy_collision'] = 0
+                    self.stats['vehicle_destroy_selfdestruct'] = 0
+                    self.stats['vehicle_destroy_gamerules'] = 0
                 
                 # Signal version switch to main application
                 if hasattr(self, 'switch_version_callback') and self.switch_version_callback:
@@ -304,6 +377,45 @@ class WebServer:
                     if hasattr(self, 'update_config_callback') and self.update_config_callback:
                         result = self.update_config_callback(data)
                         return jsonify(result)
+                    
+                    return jsonify({'status': 'error', 'message': 'Config update not available'}), 500
+                except Exception as e:
+                    return jsonify({'status': 'error', 'message': str(e)}), 500
+        
+        @self.app.route('/api/badge_visibility', methods=['GET', 'POST'])
+        def badge_visibility():
+            """Get or update badge visibility preferences."""
+            if request.method == 'GET':
+                # Return current badge visibility settings
+                if hasattr(self, 'get_config_callback') and self.get_config_callback:
+                    config = self.get_config_callback()
+                    badge_visibility = config.get('badge_visibility', {
+                        'pve': True,
+                        'pvp': True,
+                        'deaths': True,
+                        'fps_pve': True,
+                        'fps_pvp': True,
+                        'fps_death': True,
+                        'disconnects': True,
+                        'vehicle_soft': True,
+                        'vehicle_full': True,
+                        'corpse': True,
+                        'suicide': True
+                    })
+                    return jsonify(badge_visibility)
+                return jsonify({}), 500
+            
+            elif request.method == 'POST':
+                # Update badge visibility settings
+                try:
+                    data = request.get_json()
+                    
+                    if hasattr(self, 'update_config_callback') and self.update_config_callback:
+                        result = self.update_config_callback({'badge_visibility': data})
+                        if result.get('status') == 'success':
+                            return jsonify({'status': 'success', 'badge_visibility': data})
+                        else:
+                            return jsonify(result), 500
                     
                     return jsonify({'status': 'error', 'message': 'Config update not available'}), 500
                 except Exception as e:
@@ -426,7 +538,11 @@ class WebServer:
             with self.log_line_history_lock:
                 self.log_line_history.append(separator_message)
             self.broadcast_message(separator_message)
-            print(f"[DEBUG] Separator sent. Event history size: {len(self.event_history)}")
+            with self.event_history_lock:
+                event_count = len(self.event_history)
+            with self.log_line_history_lock:
+                log_count = len(self.log_line_history)
+            print(f"[DEBUG] Replay complete! Event history: {event_count} events, Raw log history: {log_count} lines")
             return
         
         # Update statistics
@@ -434,18 +550,95 @@ class WebServer:
             self.stats['total_lines'] += 1
         
         # Parse for events
-        event = self.event_parser.parse_line(line)
+        try:
+            event = self.event_parser.parse_line(line)
+        except Exception as e:
+            print(f"[ERROR] Failed to parse event from line: {e}")
+            event = None
         
         if event:
-            print(f"[DEBUG] Parsed event: {event.type.value} - {event.details.get('killer', 'N/A')} killed {event.details.get('victim', 'N/A')}")
-        
-        if event:
+            # Handle vehicle destruction events
+            if event.type.value in ['vehicle_destroy_soft', 'vehicle_destroy_full']:
+                vehicle_id = event.details.get('vehicle_id')
+                if vehicle_id:
+                    # Store in recent destructions for crew kill correlation
+                    with self.vehicle_destruction_lock:
+                        self.recent_vehicle_destructions[vehicle_id] = {
+                            'timestamp': event.timestamp,
+                            'event': event,
+                            'event_message': None  # Will store the message after creating it
+                        }
+                        
+                        # Clean up old entries (>10 seconds)
+                        from datetime import timedelta
+                        cutoff_time = event.timestamp - timedelta(seconds=10) if event.timestamp else None
+                        if cutoff_time:
+                            to_remove = [vid for vid, data in self.recent_vehicle_destructions.items() 
+                                        if data['timestamp'] and data['timestamp'] < cutoff_time]
+                            for vid in to_remove:
+                                del self.recent_vehicle_destructions[vid]
+            
+            # Handle crew kills with VehicleDestruction damage type - correlate with vehicle destruction
+            if event.type.value in ['pve_kill', 'pvp_kill'] and event.details.get('damage_type') == 'VehicleDestruction':
+                # Extract vehicle_id from zone (victim was in the destroyed vehicle)
+                zone = event.details.get('zone', '')
+                # Zone format: 'ANVL_Paladin_6763231335005' contains the vehicle ID
+                vehicle_id_match = re.search(r'_(\d{13})$', zone)
+                if vehicle_id_match:
+                    vehicle_id = vehicle_id_match.group(1)
+                    
+                    # Look up recent vehicle destruction
+                    with self.vehicle_destruction_lock:
+                        if vehicle_id in self.recent_vehicle_destructions:
+                            destruction_data = self.recent_vehicle_destructions[vehicle_id]
+                            destruction_event = destruction_data['event']
+                            
+                            # Check timestamp proximity (within 200ms)
+                            from datetime import timedelta
+                            time_diff = abs((event.timestamp - destruction_event.timestamp).total_seconds()) if event.timestamp and destruction_event.timestamp else 999
+                            
+                            if time_diff <= 0.2:  # 200ms window
+                                # Update crew count and names in the vehicle destruction event
+                                victim_name = event.details.get('victim', 'Unknown')
+                                destruction_event.details['crew_count'] += 1
+                                destruction_event.details['crew_names'].append(victim_name)
+                                
+                                # Update the stored event message if it exists
+                                if destruction_data['event_message']:
+                                    destruction_data['event_message']['event'] = destruction_event.to_dict()
+            
             # Update event-specific stats
             with self.stats_lock:
                 if event.type.value == 'disconnect':
                     self.stats['disconnects'] += 1
                 elif event.type.value == 'actor_stall':
                     self.stats['actor_stalls'] += 1
+                elif event.type.value == 'suicide':
+                    self.stats['suicides'] += 1
+                elif event.type.value == 'corpse':
+                    self.stats['corpses'] += 1
+                elif event.type.value == 'vehicle_destroy_soft':
+                    self.stats['vehicle_destroy_soft'] += 1
+                    damage_type = event.details.get('damage_type', '').lower()
+                    if damage_type == 'combat':
+                        self.stats['vehicle_destroy_combat'] += 1
+                    elif damage_type == 'collision':
+                        self.stats['vehicle_destroy_collision'] += 1
+                    elif damage_type == 'selfdestruct':
+                        self.stats['vehicle_destroy_selfdestruct'] += 1
+                    elif damage_type == 'gamerules':
+                        self.stats['vehicle_destroy_gamerules'] += 1
+                elif event.type.value == 'vehicle_destroy_full':
+                    self.stats['vehicle_destroy_full'] += 1
+                    damage_type = event.details.get('damage_type', '').lower()
+                    if damage_type == 'combat':
+                        self.stats['vehicle_destroy_combat'] += 1
+                    elif damage_type == 'collision':
+                        self.stats['vehicle_destroy_collision'] += 1
+                    elif damage_type == 'selfdestruct':
+                        self.stats['vehicle_destroy_selfdestruct'] += 1
+                    elif damage_type == 'gamerules':
+                        self.stats['vehicle_destroy_gamerules'] += 1
                 elif event.type.value in ['kill', 'pve_kill', 'pvp_kill', 'fps_pve_kill', 'fps_pvp_kill']:
                     self.stats['kills'] += 1
                     if event.type.value == 'pve_kill':
@@ -467,15 +660,34 @@ class WebServer:
                 'event': event.to_dict()
             }
             
+            # Store event_message reference for vehicle destructions (for crew kill correlation)
+            if event.type.value in ['vehicle_destroy_soft', 'vehicle_destroy_full']:
+                vehicle_id = event.details.get('vehicle_id')
+                if vehicle_id:
+                    with self.vehicle_destruction_lock:
+                        if vehicle_id in self.recent_vehicle_destructions:
+                            self.recent_vehicle_destructions[vehicle_id]['event_message'] = event_message
+            
             # Add to event history
             with self.event_history_lock:
                 self.event_history.append(event_message)
                 # Keep only last N events
                 if len(self.event_history) > self.max_history:
                     self.event_history = self.event_history[-self.max_history:]
+                current_event_count = len(self.event_history)
+            
+            # Debug: Print every 50th event to show progress
+            if current_event_count % 50 == 0:
+                print(f"[DEBUG] Event history now at {current_event_count} events (type: {event.type.value})")
             
             # Broadcast event to connected clients
+            with self.sse_lock:
+                client_count = len(self.sse_queues)
             self.broadcast_message(event_message)
+            
+            # Debug: Log first few events to verify they're being created correctly
+            if current_event_count <= 5:
+                print(f"[DEBUG] Event #{current_event_count}: type={event.type.value}, details={list(event.details.keys())}")
         
         # Create raw log line message
         log_line_message = {
@@ -516,6 +728,14 @@ class WebServer:
             self.stats['pve_kills'] = 0
             self.stats['pvp_kills'] = 0
             self.stats['actor_stalls'] = 0
+            self.stats['suicides'] = 0
+            self.stats['corpses'] = 0
+            self.stats['vehicle_destroy_soft'] = 0
+            self.stats['vehicle_destroy_full'] = 0
+            self.stats['vehicle_destroy_combat'] = 0
+            self.stats['vehicle_destroy_collision'] = 0
+            self.stats['vehicle_destroy_selfdestruct'] = 0
+            self.stats['vehicle_destroy_gamerules'] = 0
             # Keep log_path and session_start
     
     def run(self, threaded: bool = True) -> None:
@@ -525,22 +745,49 @@ class WebServer:
         Args:
             threaded: Whether to run in threaded mode
         """
-        # Disable Flask's werkzeug logger output
+        # Configure Flask's werkzeug logger
         import logging
         import os
         
-        # Suppress werkzeug logging entirely
+        # Don't disable werkzeug - let it log to custom handlers (TUI, etc)
+        # Just prevent it from printing to console by removing StreamHandlers
         log = logging.getLogger('werkzeug')
-        log.setLevel(logging.CRITICAL)
-        log.disabled = True
+        log.setLevel(logging.INFO)
         
-        # Also suppress Flask app logger
+        # Remove any console/stream handlers (but keep custom handlers like TUIHandler)
+        handlers_to_remove = [h for h in log.handlers if isinstance(h, logging.StreamHandler)]
+        for handler in handlers_to_remove:
+            log.removeHandler(handler)
+        
+        # Same for Flask app logger
         app_log = logging.getLogger('flask.app')
-        app_log.setLevel(logging.CRITICAL)
-        app_log.disabled = True
+        app_log.setLevel(logging.INFO)
+        handlers_to_remove = [h for h in app_log.handlers if isinstance(h, logging.StreamHandler)]
+        for handler in handlers_to_remove:
+            app_log.removeHandler(handler)
         
         # Suppress the startup banner
         os.environ['FLASK_ENV'] = 'production'
+        
+        # Check if port is already in use before attempting to run
+        import socket
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            sock.bind(('127.0.0.1', self.port))
+            sock.close()
+        except OSError as e:
+            print(f"\n{'='*70}")
+            print(f"❌ ERROR: Port {self.port} is already in use!")
+            print(f"{'='*70}")
+            print(f"\nAnother instance of StarLogs (or another application) is already")
+            print(f"running on port {self.port}.")
+            print(f"\nPlease either:")
+            print(f"  1. Stop the other instance and try again")
+            print(f"  2. Close this window (you're probably already viewing the dashboard)")
+            print(f"\nTo find what's using port {self.port}:")
+            print(f"  Windows: netstat -ano | findstr :{self.port}")
+            print(f"{'='*70}\n")
+            raise SystemExit(1) from e
         
         self.app.run(
             host='127.0.0.1',

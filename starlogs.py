@@ -17,7 +17,7 @@ from datetime import datetime
 from pathlib import Path
 from game_detector import GameDetector
 from config_manager import ConfigManager
-from log_monitor import LogMonitor
+from log_monitor import LogMonitor, set_debug_logging
 from web_server import WebServer
 from tui_console import TUIConsole
 from process_monitor import ProcessMonitor
@@ -50,6 +50,10 @@ class StarLogs:
         self.game_status = {'running': False, 'pid': None, 'memory_mb': None}  # Will be initialized after version selection
         self.use_tui = use_tui
         self.running = False
+        
+        # Set debug logging based on config
+        debug_enabled = self.config_manager.get('debug_mode', False)
+        set_debug_logging(debug_enabled)
         self.installations = []  # Store detected installations
         self.active_version = None  # Currently active version
         self.current_log_path = None  # Current log file path
@@ -77,20 +81,31 @@ class StarLogs:
     
     def _setup_logging(self):
         """Setup logging to redirect Flask logs to TUI."""
-        # Suppress werkzeug console output
+        # Configure werkzeug logger for TUI
         log = logging.getLogger('werkzeug')
         log.setLevel(logging.INFO)
         log.handlers.clear()
+        log.propagate = False  # Don't propagate to root logger
         
-        # Create custom handler that sends to TUI
+        # Create custom handler that sends to TUI (with message filtering)
         class TUIHandler(logging.Handler):
             def __init__(self, tui_console):
                 super().__init__()
                 self.tui = tui_console
+                # Messages to filter out (don't show in TUI)
+                self.filtered_phrases = [
+                    'development server',
+                    'Do not use it in a production',
+                    'Use a production WSGI server',
+                    'Press CTRL+C to quit'
+                ]
             
             def emit(self, record):
                 try:
                     msg = self.format(record)
+                    # Skip messages containing filtered phrases
+                    if any(phrase in msg for phrase in self.filtered_phrases):
+                        return
                     self.tui.add_web_log(msg)
                 except Exception:
                     pass
@@ -98,6 +113,13 @@ class StarLogs:
         handler = TUIHandler(self.tui)
         handler.setFormatter(logging.Formatter('%(asctime)s - %(message)s', datefmt='%H:%M:%S'))
         log.addHandler(handler)
+        
+        # Also set up Flask app logger for TUI
+        app_log = logging.getLogger('flask.app')
+        app_log.setLevel(logging.INFO)
+        app_log.handlers.clear()
+        app_log.propagate = False
+        app_log.addHandler(handler)
     
     def print_banner(self):
         """Print application banner."""
@@ -168,7 +190,34 @@ class StarLogs:
         # Store installations in config
         self.config_manager.store_installations(self.installations)
         
-        print(f"\n[OK] Found {len(self.installations)} installation(s):\n")
+        # Filter out installations without log files
+        valid_installations = [i for i in self.installations if i.get('has_log', False)]
+        
+        if not valid_installations:
+            print("\n" + "="*70)
+            print("❌ WARNING: Found Star Citizen installations, but none have Game.log files!")
+            print("="*70)
+            print("\nFound installations:")
+            for install in self.installations:
+                print(f"  - {install.get('display_name', install['version'])}")
+                print(f"    Path: {install['path']}")
+                print(f"    Status: No Game.log file found")
+            print("\nThe Game.log file is created when you launch the game.")
+            print("Please launch Star Citizen at least once, then run StarLogs again.")
+            print("="*70 + "\n")
+            sys.exit(1)
+        
+        # Warn about installations without logs
+        if len(valid_installations) < len(self.installations):
+            print("\n[INFO] Some installations don't have log files yet (not launched):")
+            for install in self.installations:
+                if not install.get('has_log', False):
+                    print(f"  - {install.get('display_name', install['version'])} (skipped)")
+        
+        # Use only valid installations
+        self.installations = valid_installations
+        
+        print(f"\n[OK] Found {len(self.installations)} installation(s) with log files:\n")
         
         for idx, install in enumerate(self.installations, 1):
             display = install.get('display_name', install['version'])
@@ -334,8 +383,9 @@ class StarLogs:
             self.active_version = version
             self.config_manager.set_active_version(version)
             
-            # Restart monitor with new path
-            self.log_monitor = LogMonitor(new_log_path, self.on_log_line)
+            # Restart monitor with new path and configured poll interval
+            poll_interval = self.config_manager.get('poll_interval', 1.0)
+            self.log_monitor = LogMonitor(new_log_path, self.on_log_line, poll_interval=poll_interval)
             if not self.log_monitor.start(replay_all=True):
                 print(f"[ERROR] Failed to start monitor for {version}")
                 return False
@@ -447,7 +497,20 @@ class StarLogs:
         return {
             'web_port': self.config_manager.get('web_port', 8080),
             'auto_detect': self.config_manager.get('auto_detect', True),
-            'debug_mode': self.config_manager.get('debug_mode', False)
+            'debug_mode': self.config_manager.get('debug_mode', False),
+            'badge_visibility': self.config_manager.get('badge_visibility', {
+                'pve': True,
+                'pvp': True,
+                'deaths': True,
+                'fps_pve': True,
+                'fps_pvp': True,
+                'fps_death': True,
+                'disconnects': True,
+                'vehicle_soft': True,
+                'vehicle_full': True,
+                'corpse': True,
+                'suicide': True
+            })
         }
     
     def update_config_callback(self, updates: dict) -> dict:
@@ -462,7 +525,7 @@ class StarLogs:
         """
         try:
             # Only allow updating certain fields
-            allowed_fields = ['web_port', 'auto_detect', 'debug_mode']
+            allowed_fields = ['web_port', 'auto_detect', 'debug_mode', 'badge_visibility']
             
             for key, value in updates.items():
                 if key in allowed_fields:
@@ -486,6 +549,16 @@ class StarLogs:
             self.log_monitor.stop()
         
         sys.exit(0)
+    
+    def handle_debug_toggle(self, enabled: bool):
+        """
+        Handle debug mode toggle from TUI (takes effect immediately).
+        
+        Args:
+            enabled: New debug mode state
+        """
+        set_debug_logging(enabled)
+        print(f"\n[CONFIG] Debug logging {'enabled' if enabled else 'disabled'}")
     
     def handle_version_change(self):
         """Handle user-initiated version change from TUI."""
@@ -547,8 +620,9 @@ class StarLogs:
                 self._debug_log("  - Web server updated")
             
             self._debug_log(f"Step 8: Creating new LogMonitor for {log_path}")
-            self.log_monitor = LogMonitor(log_path, self.on_log_line)
-            self._debug_log("  - LogMonitor created")
+            poll_interval = self.config_manager.get('poll_interval', 1.0)
+            self.log_monitor = LogMonitor(log_path, self.on_log_line, poll_interval=poll_interval)
+            self._debug_log(f"  - LogMonitor created with poll_interval={poll_interval}s")
             
             self._debug_log("Step 9: Starting log monitor with replay_all=True")
             self.log_monitor.start(replay_all=True)
@@ -608,6 +682,21 @@ class StarLogs:
         
         # Select game version
         log_path = self.select_game_version()
+        
+        # Validate log path exists
+        if not log_path or log_path == "None":
+            print("\n" + "="*70)
+            print("❌ ERROR: Game log file not found!")
+            print("="*70)
+            print("\nThe selected Star Citizen installation does not have a Game.log file yet.")
+            print("This usually means the game hasn't been launched since installation.")
+            print("\nPlease:")
+            print("  1. Launch Star Citizen at least once")
+            print("  2. The Game.log file will be created automatically")
+            print("  3. Then run StarLogs again")
+            print("="*70 + "\n")
+            sys.exit(1)
+        
         self.current_log_path = log_path
         
         # Initialize TUI with version info after selection
@@ -622,8 +711,9 @@ class StarLogs:
                     game_status=self.game_status,
                     config_manager=self.config_manager
                 )
-                # Set version change callback
+                # Set callbacks
                 self.tui.on_version_change = self.handle_version_change
+                self.tui.on_debug_toggle = self.handle_debug_toggle
                 # Setup logging to redirect to TUI
                 self._setup_logging()
         
@@ -654,6 +744,23 @@ class StarLogs:
         self.web_server.remove_custom_path_callback = self.remove_custom_path_callback
         self.web_server.get_config_callback = self.get_config_callback
         self.web_server.update_config_callback = self.update_config_callback
+        self.web_server.get_diagnostics_callback = lambda: self.log_monitor.get_diagnostics() if self.log_monitor else {}
+        
+        # Check if port is available before starting server
+        if not self.web_server.check_port_available(port):
+            print(f"\n{'='*70}")
+            print(f"❌ ERROR: Port {port} is already in use!")
+            print(f"{'='*70}")
+            print(f"\nAnother instance of StarLogs (or another application) is already")
+            print(f"running on port {port}.")
+            print(f"\nPlease either:")
+            print(f"  1. Stop the other instance and try again")
+            print(f"  2. Close this window (you're probably already viewing the dashboard)")
+            print(f"\nTo find what's using port {port}:")
+            print(f"  Windows: netstat -ano | findstr :{port}")
+            print(f"  Linux/Mac: lsof -i :{port}")
+            print(f"{'='*70}\n")
+            sys.exit(1)
         
         # Start web server in background thread
         server_thread = self.web_server.start_in_thread()
@@ -682,8 +789,9 @@ class StarLogs:
             print("LIVE LOG FEED:")
             print("-" * 60 + "\n")
         
-        # Initialize log monitor
-        self.log_monitor = LogMonitor(log_path, self.on_log_line)
+        # Initialize log monitor with configured poll interval
+        poll_interval = self.config_manager.get('poll_interval', 1.0)
+        self.log_monitor = LogMonitor(log_path, self.on_log_line, poll_interval=poll_interval)
         
         # Start monitoring - replay entire log from game boot
         if not self.use_tui:
@@ -703,6 +811,36 @@ class StarLogs:
         
         game_monitor_thread = threading.Thread(target=monitor_game_process, daemon=True)
         game_monitor_thread.start()
+        
+        # Start diagnostic monitoring thread
+        def monitor_diagnostics():
+            last_lines = 0
+            stall_count = 0
+            while self.running:
+                time.sleep(10)  # Check every 10 seconds
+                if self.log_monitor and self.log_monitor.is_running():
+                    diag = self.log_monitor.get_diagnostics()
+                    current_lines = diag['lines_read']
+                    
+                    # Check if we're stalling (no new lines in 10 seconds while game is running)
+                    if current_lines == last_lines and self.game_status.get('running'):
+                        stall_count += 1
+                        if stall_count >= 3:  # 30 seconds of no data
+                            if self.use_tui and self.tui:
+                                self.tui.add_game_log(f"[WARNING] No new log data in 30 seconds")
+                                self.tui.add_game_log(f"[DIAG] Poll checks: {diag['poll_checks']}, Checks/sec: {diag['checks_per_second']}")
+                                self.tui.add_game_log(f"[DIAG] Position: {diag['current_position']}/{diag['file_size']} bytes")
+                            else:
+                                print(f"\n[WARNING] Monitor may be stalled - no new data in 30 seconds")
+                                print(f"[DIAG] {diag}")
+                            stall_count = 0
+                    else:
+                        stall_count = 0
+                    
+                    last_lines = current_lines
+        
+        diag_monitor_thread = threading.Thread(target=monitor_diagnostics, daemon=True)
+        diag_monitor_thread.start()
         
         # Start TUI or simple loop
         if self.use_tui:

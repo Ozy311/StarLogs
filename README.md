@@ -5,7 +5,7 @@
 # StarLogs
 ### Star Citizen Log Parser & Event Tracker
 
-![Version](https://img.shields.io/badge/version-0.8.2-blue)
+![Version](https://img.shields.io/badge/version-0.9.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
 ![Python](https://img.shields.io/badge/python-3.8+-blue)
@@ -28,7 +28,8 @@ StarLogs is a comprehensive Star Citizen log parser that monitors your game logs
 
 ### 🎯 Core Functionality
 - **Real-time log monitoring** - Automatically detects and monitors active Star Citizen game logs
-- **Event tracking** - PvE kills, PvP kills, deaths, actor stalls, and disconnects
+- **Event tracking** - PvE kills, PvP kills, deaths, actor stalls, disconnects, and **vehicle destructions**
+- **Vehicle destruction tracking** - Monitors ship soft deaths (disabled) and full destructions with automatic crew kill correlation
 - **Enhanced event details** - Ship/location extraction, weapon class info, attack direction analysis
 - **System information** - Extracts CPU, GPU, RAM, OS details from logs
 - **Multi-version support** - Detects and manages multiple game installations (LIVE, PTU, EPTU)
@@ -187,26 +188,69 @@ The TUI console shows:
 - Version selector dropdown (switch between LIVE/PTU/EPTU)
 - Settings button (⚙️)
 - History button (📜)
+- Export button (💾)
+- **[NEW] WiFi Connection Indicator** - Real-time server status (🟢 Connected / 🔴 Disconnected / 🟡 Connecting)
+- **[NEW] Theme Toggle** - Switch between Dark and Light modes
+- **[NEW] About Button** - Opens unified About page with donation link
+- **[NEW] Mobile Hamburger Menu** - Responsive navigation for small screens
 
-**Statistics Panel:**
-- Real-time counters for PvE kills, PvP kills, deaths, actor stalls, disconnects
-- Total log lines processed
-- Color-coded stats (green for kills, red for deaths/stalls, yellow for disconnects)
+**Event Summary Section:**
+- **[NEW] Filter Toggle** - Collapsible "Filters" button to hide/show filter badges
+- **[NEW] Invert Button** - Toggle all filter selections with single click
+- Clear Events button
+- Reprocess Log button
+- Event filtering checkboxes for all event types (including vehicle destructions, FPS combat, suicides)
+- Statistics panel with real-time counters for:
+  - Ship PvE/PvP kills
+  - Deaths
+  - FPS PvE/PvP kills and FPS deaths
+  - Soft Deaths and Full Destructions
+  - Disconnects and Actor Stalls
+  - Suicides and Corpses
 
 **Event List:**
 - Live-updating event feed (newest first)
-- Click ▼ on events to expand and see detailed information:
+- Click ▼ on section header to fully collapse/expand widget (frees up space)
+- Click individual badges to hide/show specific event types
+- Events now include:
   - 📍 Ship/Location (e.g., "890 Jump")
   - 🎯 Weapon & class (e.g., "Ballistic Cannon (S4)")
   - 💥 Damage type (e.g., "Explosion", "Crash")
   - 🧭 Attack direction (e.g., "from Behind", "from Above")
+  - 👥 Crew members (click (+N crew) to expand crew details)
   - Victim/Killer IDs
-- Event filtering checkboxes (PvE, PvP, Deaths, Disconnects)
-- Clear events button
+
+**Raw Log Viewer:**
+- **[NEW] Wrap Text Toggle** - Enable/disable text wrapping for long log lines
+- Auto-scroll checkbox (remembers preference)
+- Clear button
+- Live log output with auto-scroll to newest entries
 
 **Controls:**
+- **[NEW] Full Widget Collapse** - Clicking section headers collapses entire widget to save space
 - **Reprocess Log** - Reparse entire current log file
 - **Auto-scroll** - Toggle automatic scrolling for events/logs
+- **[NEW] Wrap Text** - Toggle text wrapping in Raw Log Viewer
+- **Preferences Persist** - All UI preferences saved to browser localStorage
+
+#### Mobile Responsiveness
+
+**Responsive Breakpoints:**
+- **Desktop (> 900px):** All buttons visible, full layout
+- **Tablet/Mobile (≤ 900px):** 
+  - Header buttons hidden
+  - Version selector moved to hamburger menu
+  - History/Export buttons moved to hamburger menu
+  - Settings button moved to hamburger menu
+  - Connection/Theme/About icons remain on far right until ultra-mobile
+  - Hamburger menu ☰ appears with flyout options
+
+**Mobile Menu Features:**
+- Version selector (with current version display)
+- History browser
+- Export current log
+- Settings
+- Clean, touch-friendly layout with icons
 
 #### Settings Menu
 
@@ -217,15 +261,17 @@ The TUI console shows:
 - Remove custom paths
 
 **General Tab:**
-- Theme selector (Dark/Light)
+- **[NEW] Theme selector** (Dark/Light mode) - Also accessible from header theme toggle button
 - Web server port configuration
 - Restart warning for port changes
+- **[NEW] Log poll interval** (0.1-10.0 seconds) - Requires restart
 
 **About Tab:**
+- **[NEW] Donation section** with PayPal link (https://paypal.me/Ozy311)
 - Version information
 - Author and organization
 - Feature list
-- License
+- License information
 
 #### Historical Log Browser
 
@@ -236,7 +282,7 @@ The TUI console shows:
 - Sort by date, size, or name
 - Quick analysis showing event counts
 - View full analysis with:
-  - Event statistics
+  - Event statistics (including vehicle destructions, FPS combat)
   - Session uptime
   - System information
   - Build details
@@ -246,6 +292,8 @@ The TUI console shows:
 **HTML Exports:**
 - Self-contained (all styles embedded)
 - Dark theme matching main UI
+- **[NEW] Vehicle destruction events** with crew details
+- **[NEW] FPS combat events** with weapon info
 - Includes all event details with icons
 - Perfect for sharing sessions with friends
 
@@ -284,11 +332,39 @@ The TUI console shows:
 
 | Event | Description | Details Captured |
 |-------|-------------|------------------|
-| **PvE Kill** | Player killed NPC | Weapon, damage type, ship/location, direction |
-| **PvP Kill** | Player killed player | Weapon, damage type, ship/location, direction |
-| **Death** | Player was killed | Killer, damage type, ship/location |
+| **PvE Kill** | Player killed NPC (vehicle) | Weapon, damage type, ship/location, direction |
+| **PvP Kill** | Player killed player (vehicle) | Weapon, damage type, ship/location, direction |
+| **Death** | Player was killed (vehicle) | Killer, damage type, ship/location |
+| **FPS PvE Kill** | Player killed NPC on foot | Weapon, location, timestamp |
+| **FPS PvP Kill** | Player killed player on foot | Weapon, location, timestamp |
+| **FPS Death** | Player was killed on foot | Killer, damage type, location |
+| **Soft Death** | Vehicle disabled/crippled (0→1) | Ship name, attacker, damage type, crew count |
+| **Destruction** | Vehicle fully destroyed (→2) | Ship name, attacker, damage type, crew count |
+| **Suicide** | Player killed themselves | Player name, damage type, timestamp |
+| **Corpse** | Player corpse state (death confirmation) | Player name, corpse status |
 | **Actor Stall** | Game freeze/crash | Player name, stall type, duration |
 | **Disconnect** | Network disconnect | Timestamp, reason |
+
+**Vehicle Destruction System:**
+- **Soft Death (Level 0→1)** - Ship disabled but salvageable, orange indicator, crew can potentially survive
+- **Full Destruction (Level 1→2 or 0→2)** - Ship exploded and gone, red indicator, crew kills recorded
+- **Automatic Crew Correlation** - Links crew member deaths to vehicle destruction events within 200ms timestamp window
+- **Vehicle ID Extraction** - Converts vehicle IDs (e.g., "ANVL_Paladin_6763231335005") to ship names
+- **Expandable Crew Details** - Click "(+N crew)" in event card to see individual crew member names
+- **Damage Type Color Coding:**
+  - Combat (red) - Ship-to-ship weapon damage
+  - Collision (orange) - Ship collisions or ramming
+  - SelfDestruct (purple) - Player-initiated self-destruct
+  - GameRules (gray) - Server cleanup/despawn/timeout
+- **PvP/PvE Classification** - Distinguishes player-caused destructions from NPC/environment
+
+**FPS Combat Tracking:**
+- **FPS PvE (Cyan)** - On-foot kills of NPCs, distinct from vehicle PvE
+- **FPS PvP (Purple)** - On-foot player kills, separate counter from vehicle PvP
+- **FPS Death (Yellow)** - Deaths while on foot (including suicides)
+- **Weapon Details** - Captures weapon names and classifications when available
+- **Location Tracking** - Records zone/location for on-foot combat
+- **Filterable** - Independent filters for each FPS event type
 
 **Enhanced Details (when available):**
 - **Ship/Location** - Extracted from zone strings (e.g., "890 Jump", "Gladius")
@@ -334,6 +410,16 @@ Browse and analyze past gaming sessions from LogBackups directory.
 Detailed analysis with event statistics, session uptime, system specs, and event timeline.
 
 ![History Analysis](docs/screenshots/history-analysis.png)
+
+### Vehicle Destruction Tracking (New in v0.9.0)
+Real-time vehicle destruction events with automatic crew kill correlation and damage type color coding.
+
+![Vehicle Destruction Events](docs/screenshots/vehicle-destruction-events.png)
+
+### Crew Details Expansion
+Click on crew indicators to see individual crew member names from destroyed ships.
+
+![Crew List Expanded](docs/screenshots/vehicle-destruction-crew-expanded.png)
 
 ---
 
@@ -428,35 +514,62 @@ StarLogs/
 
 ### Building Executable (Windows)
 
-StarLogs uses **Nuitka** instead of PyInstaller to avoid antivirus false positives and produce more reliable executables.
+StarLogs uses **Nuitka** as the primary build tool (recommended for releases), with **PyInstaller** available as an alternative for single-executable preference.
 
-**Requirements:**
+**Why two build options?**
+- **Nuitka (Primary):** Compiles Python to native C code, fewer antivirus false positives vs PyInstaller, better performance
+- **PyInstaller (Alternative):** Produces single `.exe` file (no extracted dependencies), but higher false positive rates on unsigned executables
+
+#### Requirements
+
+**For Nuitka:**
 - Python 3.13
 - Visual Studio Build Tools (C++ compiler)
 - Nuitka: `pip install nuitka`
 
-**Build Process:**
+**For PyInstaller:**
+- Python 3.8+
+- PyInstaller: `pip install pyinstaller`
+
+#### Build with Nuitka (Recommended)
 
 ```bash
 # Run the Nuitka build script
 build_nuitka.bat
 
 # Output directory structure
-dist\starlogs.dist\
+dist\nuitka\
   ├── StarLogs.exe       # Main executable
   ├── *.dll              # Required libraries
   ├── static\            # Web assets
   └── templates\         # HTML templates
 ```
 
-**Why Nuitka?**
+**Distribution:** Package the entire `dist\nuitka\` folder. Users can run `StarLogs.exe` directly. Config saves alongside the executable.
+
+#### Build with PyInstaller (Alternative)
+
+```bash
+# Run the PyInstaller build script
+build_pyinstaller.bat
+
+# Output
+dist\pyinstaller\StarLogs.exe  # Single executable (~80MB, self-extracting)
+```
+
+**Distribution:** Single file, no dependencies to package. **However, note:**
+- Unsigned PyInstaller executables often trigger higher antivirus false positive rates
+- Users may see "Windows Defender" warnings more frequently
+- Recommend shipping Nuitka build for public releases
+- PyInstaller useful for custom/private builds
+
+#### Why Nuitka?
+
 - Compiles Python to native C code (faster execution)
 - Significantly fewer antivirus false positives vs PyInstaller
 - Better compatibility with Rich TUI library
-- More stable with onefile extractions
-
-**Distribution:**
-Package the entire `starlogs.dist` folder. Users can run `StarLogs.exe` directly. Config saves to the same directory as the executable (`starlogs_config.json`).
+- More stable with onfile extractions
+- Recommended for public releases
 
 ### Contributing
 
@@ -503,6 +616,76 @@ Package the entire `starlogs.dist` folder. Users can run `StarLogs.exe` directly
 1. Change port via TUI: Press `O` → Change Port
 2. Or edit `starlogs_config.json`: Change `web_port` value
 3. Restart StarLogs
+
+---
+
+## Known Issues
+
+### Version 0.9.0 Focus Areas
+
+The following items are known and under active investigation for the next release (v0.9.1):
+
+1. **NPC Classification (NEW in 4.3.2+)** - Some newly added NPCs in Star Citizen 4.3.2 and later are not yet recognized by the pattern database, potentially causing them to be flagged as PvP kills instead of PvE.
+   - **Workaround:** Check event details for killer/victim names; report unrecognized NPCs on GitHub
+   - **Status:** Pattern database being updated for latest NPCs
+
+2. **Event Parser Edge Cases** - Some legitimate combat events are occasionally missed due to minor log format variations or regex pattern mismatches.
+   - **Status:** Refining regex patterns for comprehensive log coverage
+
+### Troubleshooting
+
+#### "Port already in use" error
+1. Another StarLogs instance is running
+2. Use `netstat -ano | findstr :8080` (Windows) to find process
+3. Terminate the process or choose a different port in Settings
+
+#### Connection shows "Disconnected"
+1. Check that StarLogs server is running (check TUI console)
+2. Verify port is correct (default: 3111)
+3. Check Windows Firewall isn't blocking the connection
+4. Try restarting refreshing browser
+5. Restart StarLogs server
+
+#### Events not showing
+1. Ensure Star Citizen is running
+2. Check correct version is selected (LIVE vs PTU)
+3. Click "Reprocess Log" button
+4. Verify log file exists: `StarCitizen\LIVE\Game.log`
+5. Check Connection indicator shows "Connected" (green)
+
+#### Web dashboard not loading
+1. Check browser console for errors
+2. Verify web server started (look for "Running on http://...")
+3. Try a different browser
+4. Clear browser cache (`Ctrl+Shift+Delete`)
+
+---
+
+## Changelog
+
+### Version 0.9.0 (2025-10-19) - Vehicle Destruction System & UI Redesign
+
+See [CHANGELOG_0.9.0.md](.cursor/docs/CHANGELOG_0.9.0.md) for comprehensive v0.9.0 release notes including all features, technical details, and upgrade instructions.
+
+**Highlights:**
+- ✨ Vehicle destruction tracking (Soft Death & Full Destruction)
+- 🔗 Automatic crew kill correlation
+- 🎨 New header icons (WiFi, Theme, About)
+- 📱 Mobile responsive hamburger menu
+- 🎯 Enhanced FPS combat tracking
+- 💾 Filter preferences persistence
+- ⚡ Performance optimizations with polling-based log monitoring
+
+### Version 0.8.2 (Previous)
+- Event detail enhancements
+- Historical log browser improvements
+- UI refinements and bug fixes
+
+### Version 0.8.0
+- Historical log browser
+- HTML export functionality
+- Settings management overhaul
+- Multi-version support improvements
 
 ---
 

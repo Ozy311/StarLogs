@@ -8,12 +8,22 @@ class StarLogsApp {
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 10;
         
-        // Event filters
+        // Badges visibility state
+        this.badgesVisible = true;
+        
+        // Event filters - initialize from saved state if available
         this.filters = {
             pve: true,
             pvp: true,
             deaths: true,
-            disconnects: true
+            fps_pve: true,
+            fps_pvp: true,
+            fps_death: true,
+            disconnects: true,
+            vehicle_soft: true,
+            vehicle_full: true,
+            corpse: true,
+            suicide: true
         };
         
         // Event counters
@@ -21,11 +31,21 @@ class StarLogsApp {
             pve: 0,
             pvp: 0,
             deaths: 0,
-            disconnects: 0
+            fps_pve: 0,
+            fps_pvp: 0,
+            fps_death: 0,
+            disconnects: 0,
+            vehicle_soft: 0,
+            vehicle_full: 0,
+            stalls: 0,
+            corpse: 0,
+            suicide: 0
         };
         
         this.initializeElements();
-        this.attachEventListeners();
+        this.loadLogPreferences(); // Load UI preferences FIRST
+        this.attachEventListeners(); // Attach listeners BEFORE loading badge visibility
+        this.loadBadgeVisibility(); // Load badge visibility AFTER listeners are attached
         this.initializeResizer();
         this.loadVersions();
         this.connect();
@@ -43,7 +63,14 @@ class StarLogsApp {
         this.pveCount = document.getElementById('pve-count');
         this.pvpCount = document.getElementById('pvp-count');
         this.deathCount = document.getElementById('death-count');
+        this.fpsPveCount = document.getElementById('fps-pve-count');
+        this.fpsPvpCount = document.getElementById('fps-pvp-count');
+        this.fpsDeathCount = document.getElementById('fps-death-count');
+        this.suicideCount = document.getElementById('suicide-count');
+        this.corpseCount = document.getElementById('corpse-count');
         this.disconnectCount = document.getElementById('disconnect-count');
+        this.vehicleSoftCount = document.getElementById('vehicle-soft-count');
+        this.vehicleFullCount = document.getElementById('vehicle-full-count');
         
         // Event list
         this.eventsList = document.getElementById('events-list');
@@ -83,6 +110,7 @@ class StarLogsApp {
         
         // Historical logs
         this.historyBtn = document.getElementById('history-btn');
+        this.exportCurrentBtn = document.getElementById('export-current-btn');
         this.historyModal = document.getElementById('history-modal');
         this.historyVersionSelect = document.getElementById('history-version-select');
         this.historySortSelect = document.getElementById('history-sort-select');
@@ -104,50 +132,79 @@ class StarLogsApp {
         this.loadTheme();
         
         // Controls
-        this.showPve = document.getElementById('show-pve');
-        this.showPvp = document.getElementById('show-pvp');
-        this.showDeaths = document.getElementById('show-deaths');
-        this.showDisconnects = document.getElementById('show-disconnects');
         this.autoScrollCheckbox = document.getElementById('auto-scroll');
+        this.wrapTextCheckbox = document.getElementById('wrap-text');
         this.clearEventsBtn = document.getElementById('clear-events');
         this.clearLogBtn = document.getElementById('clear-log');
         this.reprocessBtn = document.getElementById('reprocess-log');
+        
+        // Load saved preferences
+        this.loadLogPreferences();
     }
     
     attachEventListeners() {
-        // Filter checkboxes
-        this.showPve.addEventListener('change', (e) => {
-            this.filters.pve = e.target.checked;
-            this.filterEvents();
+        // Badge filter clicks
+        document.querySelectorAll('.count-badge[data-filter]').forEach(badge => {
+            badge.addEventListener('click', () => {
+                const filterName = badge.dataset.filter;
+                this.filters[filterName] = !this.filters[filterName];
+                badge.classList.toggle('active');
+                this.filterEvents();
+                this.saveBadgeVisibility(); // Save changes immediately
+            });
         });
         
-        this.showPvp.addEventListener('change', (e) => {
-            this.filters.pvp = e.target.checked;
-            this.filterEvents();
-        });
-        
-        this.showDeaths.addEventListener('change', (e) => {
-            this.filters.deaths = e.target.checked;
-            this.filterEvents();
-        });
-        
-        this.showDisconnects.addEventListener('change', (e) => {
-            this.filters.disconnects = e.target.checked;
-            this.filterEvents();
-        });
+        // Invert button
+        const invertBtn = document.getElementById('invert-badges-btn');
+        if (invertBtn) {
+            invertBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent triggering section collapse
+                // Invert all badge visibility
+                Object.keys(this.filters).forEach(key => {
+                    this.filters[key] = !this.filters[key];
+                });
+                
+                // Update UI
+                document.querySelectorAll('.count-badge[data-filter]').forEach(badge => {
+                    const filterName = badge.dataset.filter;
+                    if (this.filters[filterName]) {
+                        badge.classList.add('active');
+                    } else {
+                        badge.classList.remove('active');
+                    }
+                });
+                
+                // Refilter events and save
+                this.filterEvents();
+                this.saveBadgeVisibility();
+            });
+        }
         
         this.autoScrollCheckbox.addEventListener('change', (e) => {
             this.autoScroll = e.target.checked;
+            localStorage.setItem('starlogger-auto-scroll', this.autoScroll);
+        });
+        
+        this.wrapTextCheckbox.addEventListener('change', (e) => {
+            const wrapEnabled = e.target.checked;
+            if (wrapEnabled) {
+                this.logOutput.classList.add('wrap-text');
+            } else {
+                this.logOutput.classList.remove('wrap-text');
+            }
+            localStorage.setItem('starlogger-wrap-text', wrapEnabled);
         });
         
         // Clear buttons
         this.clearEventsBtn.addEventListener('click', () => {
             this.eventsList.innerHTML = '<div class="empty-state">No events yet. Waiting for game activity...</div>';
-            this.counters = { pve: 0, pvp: 0, deaths: 0, disconnects: 0 };
-            this.pveCount.textContent = '0 PvE';
-            this.pvpCount.textContent = '0 PvP';
+            this.counters = { pve: 0, pvp: 0, deaths: 0, disconnects: 0, vehicle_soft: 0, vehicle_full: 0 };
+            this.pveCount.textContent = '0 Ship PvE';
+            this.pvpCount.textContent = '0 Ship PvP';
             this.deathCount.textContent = '0 Deaths';
             this.disconnectCount.textContent = '0 DC';
+            if (this.vehicleSoftCount) this.vehicleSoftCount.textContent = '0 Soft';
+            if (this.vehicleFullCount) this.vehicleFullCount.textContent = '0 Full';
         });
         
         this.clearLogBtn.addEventListener('click', () => {
@@ -200,6 +257,23 @@ class StarLogsApp {
         // Historical logs
         this.historyBtn.addEventListener('click', () => {
             this.openHistoryBrowser();
+        });
+        
+        // Export current log
+        this.exportCurrentBtn.addEventListener('click', async () => {
+            try {
+                const response = await fetch('/api/log_file');
+                const data = await response.json();
+                
+                if (data.log_file) {
+                    await this.exportLogHTML(data.log_file, 'Current Game Log');
+                } else {
+                    alert('No active game log found');
+                }
+            } catch (error) {
+                console.error('Error exporting current log:', error);
+                alert('Error exporting current log');
+            }
         });
         
         this.historyVersionSelect.addEventListener('change', (e) => {
@@ -281,6 +355,101 @@ class StarLogsApp {
                 this.aboutModal.classList.remove('show');
             }
         });
+        
+        // New Header Icon Button Listeners
+        
+        // Connection Status Button (WiFi Icon)
+        const connectionBtn = document.getElementById('connection-btn');
+        if (connectionBtn) {
+            connectionBtn.addEventListener('click', () => {
+                const status = this.connectionStatus.textContent;
+                alert(`Server Connection Status: ${status}`);
+            });
+        }
+        
+        // Theme Toggle Button
+        const themeToggleBtn = document.getElementById('theme-toggle-btn');
+        if (themeToggleBtn) {
+            themeToggleBtn.addEventListener('click', () => {
+                this.toggleTheme();
+            });
+        }
+        
+        // About Button
+        const aboutBtn = document.getElementById('about-btn');
+        if (aboutBtn) {
+            aboutBtn.addEventListener('click', () => {
+                this.openAboutModal();
+            });
+        }
+        
+        // Mobile Menu Toggle
+        const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
+        const mobileMenuFlyout = document.getElementById('mobile-menu-flyout');
+        if (mobileMenuToggle && mobileMenuFlyout) {
+            mobileMenuToggle.addEventListener('click', () => {
+                mobileMenuFlyout.classList.toggle('show');
+            });
+            
+            // Close menu when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!mobileMenuToggle.contains(e.target) && !mobileMenuFlyout.contains(e.target)) {
+                    mobileMenuFlyout.classList.remove('show');
+                }
+            });
+        }
+        
+        // Mobile History Button
+        const mobileHistoryBtn = document.getElementById('mobile-history-btn');
+        if (mobileHistoryBtn) {
+            mobileHistoryBtn.addEventListener('click', () => {
+                if (mobileMenuFlyout) mobileMenuFlyout.classList.remove('show');
+                this.openHistoryBrowser();
+            });
+        }
+        
+        // Mobile Export Button
+        const mobileExportBtn = document.getElementById('mobile-export-btn');
+        if (mobileExportBtn) {
+            mobileExportBtn.addEventListener('click', async () => {
+                if (mobileMenuFlyout) mobileMenuFlyout.classList.remove('show');
+                try {
+                    const response = await fetch('/api/log_file');
+                    const data = await response.json();
+                    
+                    if (data.log_file) {
+                        await this.exportLogHTML(data.log_file, 'Current Game Log');
+                    } else {
+                        alert('No active game log found');
+                    }
+                } catch (error) {
+                    console.error('Error exporting current log:', error);
+                    alert('Error exporting current log');
+                }
+            });
+        }
+        
+        // Mobile Version Button - Show alert with version info
+        const mobileVersionBtn = document.getElementById('mobile-version-btn');
+        if (mobileVersionBtn) {
+            mobileVersionBtn.addEventListener('click', () => {
+                if (mobileMenuFlyout) mobileMenuFlyout.classList.remove('show');
+                // You can expand this to show version selector later
+                alert('Version switching on mobile coming soon');
+            });
+        }
+        
+        // Mobile Settings Button
+        const mobileSettingsBtn = document.getElementById('mobile-settings-btn');
+        if (mobileSettingsBtn) {
+            mobileSettingsBtn.addEventListener('click', () => {
+                if (mobileMenuFlyout) mobileMenuFlyout.classList.remove('show');
+                this.settingsMenu.classList.add('show');
+                this.loadGameInstallations();
+                this.loadAboutInfo();
+                this.loadGeneralSettings();
+            });
+        }
     }
     
     loadTheme() {
@@ -305,10 +474,74 @@ class StarLogsApp {
     }
     
     toggleTheme() {
-        const currentTheme = document.body.classList.contains('light-mode') ? 'light' : 'dark';
-        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-        this.setTheme(newTheme);
-        this.themeSelect.value = newTheme;
+        // Toggle between dark and light mode
+        const html = document.documentElement;
+        const currentMode = html.getAttribute('data-theme') || 'dark';
+        const newMode = currentMode === 'dark' ? 'light' : 'dark';
+        
+        html.setAttribute('data-theme', newMode);
+        localStorage.setItem('starlogger-theme', newMode);
+        
+        // Update theme toggle button icon and title
+        const themeBtn = document.getElementById('theme-toggle-btn');
+        if (themeBtn) {
+            const icon = themeBtn.querySelector('i');
+            if (icon) {
+                if (newMode === 'light') {
+                    icon.className = 'fas fa-moon';
+                    themeBtn.title = 'Light Mode (click to toggle to Dark Mode)';
+                } else {
+                    icon.className = 'fas fa-sun';
+                    themeBtn.title = 'Dark Mode (click to toggle to Light Mode)';
+                }
+            }
+        }
+        
+        // Apply light mode class to body if needed
+        const body = document.body;
+        if (newMode === 'light') {
+            body.classList.add('light-mode');
+        } else {
+            body.classList.remove('light-mode');
+        }
+    }
+    
+    loadLogPreferences() {
+        // Load auto-scroll preference (default: true)
+        const savedAutoScroll = localStorage.getItem('starlogger-auto-scroll');
+        if (savedAutoScroll !== null) {
+            this.autoScroll = savedAutoScroll === 'true';
+            this.autoScrollCheckbox.checked = this.autoScroll;
+        }
+        
+        // Load wrap-text preference (default: false - no wrap)
+        const savedWrapText = localStorage.getItem('starlogger-wrap-text');
+        if (savedWrapText !== null) {
+            const wrapEnabled = savedWrapText === 'true';
+            this.wrapTextCheckbox.checked = wrapEnabled;
+            if (wrapEnabled) {
+                this.logOutput.classList.add('wrap-text');
+            } else {
+                this.logOutput.classList.remove('wrap-text');
+            }
+        }
+        
+        // Load badges visibility preference (default: true - visible)
+        // Use a small delay to ensure DOM elements are ready
+        setTimeout(() => {
+            const savedBadgesVisible = localStorage.getItem('starlogger-badges-visible');
+            if (savedBadgesVisible === 'false') {
+                this.badgesVisible = false;
+                const badgesContent = document.getElementById('badges-content');
+                const badgesIcon = document.querySelector('.badges-toggle-icon');
+                if (badgesContent && badgesIcon) {
+                    badgesContent.classList.add('collapsed');
+                    badgesIcon.classList.add('collapsed');
+                    badgesIcon.textContent = '▶';
+                    console.log('[DEBUG] Badges collapsed state restored from localStorage');
+                }
+            }
+        }, 100);
     }
     
     // Version Management
@@ -475,11 +708,13 @@ class StarLogsApp {
         this.logOutput.innerHTML = '';
         
         // Reset counters
-        this.counters = { pve: 0, pvp: 0, deaths: 0, disconnects: 0 };
-        this.pveCount.textContent = '0 PvE';
-        this.pvpCount.textContent = '0 PvP';
+        this.counters = { pve: 0, pvp: 0, deaths: 0, disconnects: 0, vehicle_soft: 0, vehicle_full: 0 };
+        this.pveCount.textContent = '0 Ship PvE';
+        this.pvpCount.textContent = '0 Ship PvP';
         this.deathCount.textContent = '0 Deaths';
         this.disconnectCount.textContent = '0 Stalls';
+        if (this.vehicleSoftCount) this.vehicleSoftCount.textContent = '0 Soft';
+        if (this.vehicleFullCount) this.vehicleFullCount.textContent = '0 Full';
     }
     
     async loadAboutInfo() {
@@ -522,27 +757,40 @@ class StarLogsApp {
     initializeResizer() {
         if (!this.divider) return;
         
+        // Setup resizable divider (flexbox-based)
         let isDragging = false;
         let startY = 0;
-        let startEventsHeight = 0;
-        let startLogsHeight = 0;
+        let startEventsFlex = 1;
+        let startLogsFlex = 1;
+        let containerHeight = 0;
         
-        // Load saved sizes from localStorage
-        const savedEventsHeight = localStorage.getItem('starlogger-events-height');
-        const savedLogsHeight = localStorage.getItem('starlogger-logs-height');
+        const eventsSection = document.querySelector('.summary-section');
+        const logsSection = document.querySelector('.log-section');
         
-        if (savedEventsHeight) {
-            this.eventsList.style.height = savedEventsHeight;
-        }
-        if (savedLogsHeight) {
-            this.logOutput.style.height = savedLogsHeight;
+        // Load saved flex values
+        const savedEventsFlex = localStorage.getItem('starlogger-events-flex');
+        const savedLogsFlex = localStorage.getItem('starlogger-logs-flex');
+        
+        if (savedEventsFlex && savedLogsFlex) {
+            eventsSection.style.flex = `${savedEventsFlex} 1 0`;
+            logsSection.style.flex = `${savedLogsFlex} 1 0`;
         }
         
         this.divider.addEventListener('mousedown', (e) => {
             isDragging = true;
             startY = e.clientY;
-            startEventsHeight = this.eventsList.offsetHeight;
-            startLogsHeight = this.logOutput.offsetHeight;
+            
+            // Get current flex values
+            const eventsStyle = window.getComputedStyle(eventsSection);
+            const logsStyle = window.getComputedStyle(logsSection);
+            startEventsFlex = parseFloat(eventsStyle.flexGrow) || 1;
+            startLogsFlex = parseFloat(logsStyle.flexGrow) || 1;
+            
+            // Calculate total available height
+            const container = document.querySelector('.container');
+            const header = document.querySelector('header');
+            const dividerHeight = this.divider.offsetHeight;
+            containerHeight = container.clientHeight - header.offsetHeight - dividerHeight - 30; // 30 for padding
             
             this.divider.classList.add('dragging');
             document.body.style.cursor = 'ns-resize';
@@ -555,11 +803,24 @@ class StarLogsApp {
             if (!isDragging) return;
             
             const deltaY = e.clientY - startY;
-            const newEventsHeight = Math.max(150, startEventsHeight + deltaY);
-            const newLogsHeight = Math.max(150, startLogsHeight - deltaY);
+            const deltaRatio = deltaY / containerHeight;
             
-            this.eventsList.style.height = `${newEventsHeight}px`;
-            this.logOutput.style.height = `${newLogsHeight}px`;
+            // Adjust flex values based on mouse movement
+            let newEventsFlex = Math.max(0.2, startEventsFlex + deltaRatio);
+            let newLogsFlex = Math.max(0.2, startLogsFlex - deltaRatio);
+            
+            // Ensure minimum sizes
+            if (newEventsFlex < 0.2) {
+                newEventsFlex = 0.2;
+                newLogsFlex = startEventsFlex + startLogsFlex - 0.2;
+            }
+            if (newLogsFlex < 0.2) {
+                newLogsFlex = 0.2;
+                newEventsFlex = startEventsFlex + startLogsFlex - 0.2;
+            }
+            
+            eventsSection.style.flex = `${newEventsFlex} 1 0`;
+            logsSection.style.flex = `${newLogsFlex} 1 0`;
             
             e.preventDefault();
         });
@@ -571,9 +832,11 @@ class StarLogsApp {
                 document.body.style.cursor = '';
                 document.body.style.userSelect = '';
                 
-                // Save sizes to localStorage
-                localStorage.setItem('starlogger-events-height', this.eventsList.style.height);
-                localStorage.setItem('starlogger-logs-height', this.logOutput.style.height);
+                // Save flex values to localStorage
+                const eventsStyle = window.getComputedStyle(eventsSection);
+                const logsStyle = window.getComputedStyle(logsSection);
+                localStorage.setItem('starlogger-events-flex', eventsStyle.flexGrow);
+                localStorage.setItem('starlogger-logs-flex', logsStyle.flexGrow);
             }
         });
     }
@@ -585,6 +848,7 @@ class StarLogsApp {
         
         this.connectionStatus.textContent = 'Connecting...';
         this.connectionStatus.className = 'status-value';
+        this.updateConnectionIcon('connecting');
         
         this.eventSource = new EventSource('/events');
         
@@ -592,6 +856,7 @@ class StarLogsApp {
             console.log('SSE connection opened');
             this.connectionStatus.textContent = 'Connected';
             this.connectionStatus.className = 'status-value connected';
+            this.updateConnectionIcon('connected');
             this.reconnectAttempts = 0;
         };
         
@@ -608,6 +873,7 @@ class StarLogsApp {
             console.error('SSE connection error');
             this.connectionStatus.textContent = 'Disconnected';
             this.connectionStatus.className = 'status-value disconnected';
+            this.updateConnectionIcon('disconnected');
             
             this.eventSource.close();
             
@@ -620,22 +886,69 @@ class StarLogsApp {
         };
     }
     
+    updateConnectionIcon(state) {
+        const connectionBtn = document.getElementById('connection-btn');
+        if (!connectionBtn) return;
+        
+        const icon = connectionBtn.querySelector('i');
+        if (!icon) return;
+        
+        if (state === 'connected') {
+            connectionBtn.classList.remove('disconnected');
+            connectionBtn.style.color = 'var(--accent-green)';
+            icon.className = 'fas fa-wifi';
+            connectionBtn.title = 'Server Connection Status: Connected';
+        } else if (state === 'disconnected') {
+            connectionBtn.classList.add('disconnected');
+            connectionBtn.style.color = 'var(--accent-red)';
+            icon.className = 'fas fa-wifi-slash';
+            connectionBtn.title = 'Server Connection Status: Disconnected';
+        } else if (state === 'connecting') {
+            connectionBtn.classList.remove('disconnected');
+            connectionBtn.style.color = 'var(--accent-yellow)';
+            icon.className = 'fas fa-wifi';
+            connectionBtn.title = 'Server Connection Status: Connecting...';
+        }
+    }
+    
     handleMessage(data) {
+        // Debug: Track message types received
+        if (!this.messageStats) {
+            this.messageStats = { log_line: 0, event: 0, separator: 0, clear_all: 0, other: 0 };
+        }
+        
         if (data.type === 'log_line') {
+            this.messageStats.log_line++;
             this.addLogLine(data.line, data.has_event);
         } else if (data.type === 'event') {
+            this.messageStats.event++;
+            // Debug: Log first few events
+            if (this.messageStats.event <= 5) {
+                console.log('[DEBUG] Received event:', data.event.type, data.event);
+            }
             this.addEvent(data.event);
         } else if (data.type === 'separator') {
+            this.messageStats.separator++;
+            console.log('[DEBUG] Separator received. Stats:', this.messageStats);
             this.addSeparator(data.message);
         } else if (data.type === 'clear_all') {
+            this.messageStats.clear_all++;
             // Clear UI for reprocessing
             this.eventsList.innerHTML = '<div class="empty-state">Reprocessing...</div>';
             this.logOutput.innerHTML = '';
-            this.counters = { pve: 0, pvp: 0, deaths: 0, disconnects: 0 };
-            this.pveCount.textContent = '0 PvE';
-            this.pvpCount.textContent = '0 PvP';
+            this.counters = { pve: 0, pvp: 0, deaths: 0, fps_pve: 0, fps_pvp: 0, fps_death: 0, disconnects: 0, vehicle_soft: 0, vehicle_full: 0, stalls: 0, corpse: 0 };
+            this.pveCount.textContent = '0 Ship PvE';
+            this.pvpCount.textContent = '0 Ship PvP';
             this.deathCount.textContent = '0 Deaths';
+            if (this.fpsPveCount) this.fpsPveCount.textContent = '0 FPS PvE';
+            if (this.fpsPvpCount) this.fpsPvpCount.textContent = '0 FPS PvP';
+            if (this.fpsDeathCount) this.fpsDeathCount.textContent = '0 FPS Death';
             this.disconnectCount.textContent = '0 DC';
+            if (this.vehicleSoftCount) this.vehicleSoftCount.textContent = '0 Soft';
+            if (this.vehicleFullCount) this.vehicleFullCount.textContent = '0 Full';
+        } else {
+            this.messageStats.other++;
+            console.warn('[DEBUG] Unknown message type:', data.type, data);
         }
     }
     
@@ -652,25 +965,47 @@ class StarLogsApp {
     }
     
     addEvent(event) {
+        // Debug: Log if event is missing critical data
+        if (!event || !event.type) {
+            console.error('[DEBUG] Invalid event received:', event);
+            return;
+        }
+        
         // Remove empty state if present
         const emptyState = this.eventsList.querySelector('.empty-state');
         if (emptyState) {
             emptyState.remove();
+            console.log('[DEBUG] Removed empty state, first event received');
         }
         
         // Increment counters
         if (event.type === 'pve_kill') {
             this.counters.pve++;
-            this.pveCount.textContent = `${this.counters.pve} PvE`;
+            this.pveCount.textContent = `${this.counters.pve} Ship PvE`;
         } else if (event.type === 'pvp_kill') {
             this.counters.pvp++;
-            this.pvpCount.textContent = `${this.counters.pvp} PvP`;
+            this.pvpCount.textContent = `${this.counters.pvp} Ship PvP`;
         } else if (event.type === 'death') {
             this.counters.deaths++;
             this.deathCount.textContent = `${this.counters.deaths} Deaths`;
-        } else if (event.type === 'disconnect') {
+        } else if (event.type === 'fps_pve_kill') {
+            this.counters.fps_pve++;
+            if (this.fpsPveCount) this.fpsPveCount.textContent = `${this.counters.fps_pve} FPS PvE`;
+        } else if (event.type === 'fps_pvp_kill') {
+            this.counters.fps_pvp++;
+            if (this.fpsPvpCount) this.fpsPvpCount.textContent = `${this.counters.fps_pvp} FPS PvP`;
+        } else if (event.type === 'fps_death') {
+            this.counters.fps_death++;
+            if (this.fpsDeathCount) this.fpsDeathCount.textContent = `${this.counters.fps_death} FPS Death`;
+        } else if (event.type === 'disconnect' || event.type === 'actor_stall') {
             this.counters.disconnects++;
             this.disconnectCount.textContent = `${this.counters.disconnects} Stalls`;
+        } else if (event.type === 'vehicle_destroy_soft') {
+            this.counters.vehicle_soft++;
+            if (this.vehicleSoftCount) this.vehicleSoftCount.textContent = `${this.counters.vehicle_soft} Soft`;
+        } else if (event.type === 'vehicle_destroy_full') {
+            this.counters.vehicle_full++;
+            if (this.vehicleFullCount) this.vehicleFullCount.textContent = `${this.counters.vehicle_full} Full`;
         }
         
         // Create event element
@@ -688,7 +1023,7 @@ class StarLogsApp {
         let details = '';
         
         if (event.type === 'pve_kill') {
-            typeLabel = 'PvE Kill';
+            typeLabel = 'Ship PvE';
             typeBadge = 'pve';
             const killer = event.details?.killer || 'Unknown';
             const victim = event.details?.victim || 'Unknown';
@@ -696,7 +1031,7 @@ class StarLogsApp {
             summary = `<strong>${killer}</strong> killed <strong>${victim}</strong>`;
             details = `Weapon: ${this.formatWeaponName(weapon)}`;
         } else if (event.type === 'pvp_kill') {
-            typeLabel = 'PvP Kill';
+            typeLabel = 'Ship PvP';
             typeBadge = 'pvp';
             const killer = event.details?.killer || 'Unknown';
             const victim = event.details?.victim || 'Unknown';
@@ -733,11 +1068,71 @@ class StarLogsApp {
             const victim = event.details?.victim || 'You';
             summary = `💀 <strong>${victim}</strong> was killed by <strong>${killer}</strong>`;
             details = event.details?.weapon ? `Weapon: ${this.formatWeaponName(event.details.weapon)}` : '';
+        } else if (event.type === 'vehicle_destroy_soft') {
+            typeLabel = 'Soft Death';
+            typeBadge = 'vehicle-soft';
+            const shipName = event.details?.ship_name || 'Unknown Ship';
+            const attacker = event.details?.attacker || 'Unknown';
+            const damageType = event.details?.damage_type || 'Unknown';
+            const crewCount = event.details?.crew_count || 0;
+            const crewNames = event.details?.crew_names || [];
+            summary = `<strong>${shipName}</strong> disabled by <strong>${attacker}</strong>`;
+            if (crewCount > 0) {
+                summary += ` <span class="crew-indicator clickable" data-crew-count="${crewCount}" data-crew-names='${JSON.stringify(crewNames)}'>(+${crewCount} crew)</span>`;
+            }
+            details = damageType ? `Damage Type: ${damageType}` : '';
+        } else if (event.type === 'vehicle_destroy_full') {
+            typeLabel = 'Destroyed';
+            typeBadge = 'vehicle-full';
+            const shipName = event.details?.ship_name || 'Unknown Ship';
+            const attacker = event.details?.attacker || 'Unknown';
+            const damageType = event.details?.damage_type || 'Unknown';
+            const crewCount = event.details?.crew_count || 0;
+            const crewNames = event.details?.crew_names || [];
+            summary = `<strong>${shipName}</strong> destroyed by <strong>${attacker}</strong>`;
+            if (crewCount > 0) {
+                summary += ` <span class="crew-indicator clickable" data-crew-count="${crewCount}" data-crew-names='${JSON.stringify(crewNames)}'>(+${crewCount} crew)</span>`;
+            }
+            details = damageType ? `Damage Type: ${damageType}` : '';
         } else if (event.type === 'disconnect') {
             typeLabel = 'Disconnect';
             typeBadge = 'dc';
             summary = 'Client disconnected';
             details = event.raw_line?.substring(0, 100) || '';
+        } else if (event.type === 'actor_stall') {
+            typeLabel = 'Actor Stall';
+            typeBadge = 'stall';
+            const player = event.details?.player || 'Unknown';
+            const stallType = event.details?.stall_type || 'unknown';
+            const length = event.details?.length || 0;
+            summary = `<strong>${player}</strong> stalled`;
+            details = `Type: ${stallType}, Duration: ${length}s`;
+            this.counters.stalls++;
+            if (this.disconnectCount) {
+                this.disconnectCount.textContent = `${this.counters.stalls} Stalls`;
+            }
+        } else if (event.type === 'suicide') {
+            typeLabel = 'Suicide';
+            typeBadge = 'suicide';
+            const victim = event.details?.victim || 'Unknown';
+            const damageType = event.details?.damage_type || 'Unknown';
+            summary = `💀 <strong>${victim}</strong> killed themselves`;
+            details = `Damage Type: ${damageType}`;
+            this.counters.suicide++;
+            if (this.suicideCount) {
+                this.suicideCount.textContent = `${this.counters.suicide} Suicides`;
+            }
+        } else if (event.type === 'corpse') {
+            typeLabel = 'Corpse 💀';
+            typeBadge = 'corpse';
+            const player = event.details?.player || 'Unknown';
+            const status = event.details?.status || '';
+            summary = `<strong>${player}</strong> became a corpse`;
+            details = status;
+            this.counters.corpse++;
+            if (this.corpseCount) {
+                this.corpseCount.textContent = `${this.counters.corpse} Corpses`;
+            }
         }
         
         // Build expanded details section with rich information
@@ -828,6 +1223,15 @@ class StarLogsApp {
             });
         }
         
+        // Add click handler for crew indicator expansion
+        const crewIndicator = eventDiv.querySelector('.crew-indicator.clickable');
+        if (crewIndicator) {
+            crewIndicator.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleCrewDetails(crewIndicator, eventDiv);
+            });
+        }
+        
         // Insert at top (newest first)
         this.eventsList.insertBefore(eventDiv, this.eventsList.firstChild);
         
@@ -836,6 +1240,11 @@ class StarLogsApp {
         
         // Limit events list size
         this.trimEventsList();
+        
+        // Auto-scroll to top to show newest event (if enabled)
+        if (this.autoScroll) {
+            this.eventsList.scrollTop = 0;
+        }
     }
     
     formatWeaponName(weapon) {
@@ -865,6 +1274,56 @@ class StarLogsApp {
         return cleaned.replace(/_/g, ' ');
     }
     
+    getBadgeClassForDamageType(damageType) {
+        // Return badge class based on damage type
+        const type = (damageType || '').toLowerCase();
+        switch (type) {
+            case 'combat':
+                return 'vehicle-combat';
+            case 'collision':
+                return 'vehicle-collision';
+            case 'selfdestruct':
+                return 'vehicle-selfdestruct';
+            case 'gamerules':
+                return 'vehicle-gamerules';
+            default:
+                return 'vehicle-default';
+        }
+    }
+    
+    toggleCrewDetails(crewIndicator, eventDiv) {
+        // Check if crew list already exists
+        let crewList = eventDiv.querySelector('.crew-list');
+        
+        if (crewList) {
+            // Toggle visibility
+            crewList.classList.toggle('hidden');
+            const isHidden = crewList.classList.contains('hidden');
+            crewIndicator.textContent = `(${isHidden ? '+' : '−'}${crewIndicator.dataset.crewCount} crew)`;
+        } else {
+            // Create crew list
+            try {
+                const crewNames = JSON.parse(crewIndicator.dataset.crewNames || '[]');
+                if (crewNames.length > 0) {
+                    crewList = document.createElement('div');
+                    crewList.className = 'crew-list';
+                    crewList.innerHTML = crewNames.map(name => 
+                        `<div class="crew-member">👤 ${name}</div>`
+                    ).join('');
+                    
+                    // Insert after the event summary
+                    const summary = eventDiv.querySelector('.event-summary');
+                    summary.appendChild(crewList);
+                    
+                    // Update indicator text
+                    crewIndicator.textContent = `(−${crewIndicator.dataset.crewCount} crew)`;
+                }
+            } catch (e) {
+                console.error('Failed to parse crew names:', e);
+            }
+        }
+    }
+    
     applyFilterToEvent(eventDiv) {
         const type = eventDiv.dataset.type;
         let show = false;
@@ -872,7 +1331,14 @@ class StarLogsApp {
         if (type === 'pve_kill') show = this.filters.pve;
         else if (type === 'pvp_kill') show = this.filters.pvp;
         else if (type === 'death') show = this.filters.deaths;
-        else if (type === 'disconnect') show = this.filters.disconnects;
+        else if (type === 'fps_pve_kill') show = this.filters.fps_pve;
+        else if (type === 'fps_pvp_kill') show = this.filters.fps_pvp;
+        else if (type === 'fps_death') show = this.filters.fps_death;
+        else if (type === 'suicide') show = this.filters.suicide;
+        else if (type === 'corpse') show = this.filters.corpse;
+        else if (type === 'disconnect' || type === 'actor_stall') show = this.filters.disconnects;
+        else if (type === 'vehicle_destroy_soft') show = this.filters.vehicle_soft;
+        else if (type === 'vehicle_destroy_full') show = this.filters.vehicle_full;
         
         eventDiv.style.display = show ? 'flex' : 'none';
     }
@@ -1107,8 +1573,14 @@ class StarLogsApp {
             const response = await fetch('/api/config');
             const data = await response.json();
             
+            console.log('[DEBUG] Received config data:', data);
+            console.log('[DEBUG] web_port value:', data.web_port);
+            
             if (data.web_port) {
+                console.log('[DEBUG] Setting port input to:', data.web_port);
                 this.portInput.value = data.web_port;
+            } else {
+                console.warn('[DEBUG] No web_port in config data');
             }
         } catch (error) {
             console.error('Failed to load settings:', error);
@@ -1352,11 +1824,18 @@ class StarLogsApp {
                     <div class="analysis-col">
                         <h3>📊 Events</h3>
                         <div class="compact-stats">
-                            <div class="compact-stat"><span class="stat-label">PvE:</span> <span class="stat-value pve">${stats.pve_kills || 0}</span></div>
-                            <div class="compact-stat"><span class="stat-label">PvP:</span> <span class="stat-value pvp">${stats.pvp_kills || 0}</span></div>
+                            <div class="compact-stat"><span class="stat-label">Ship PvE:</span> <span class="stat-value pve">${stats.pve_kills || 0}</span></div>
+                            <div class="compact-stat"><span class="stat-label">Ship PvP:</span> <span class="stat-value pvp">${stats.pvp_kills || 0}</span></div>
                             <div class="compact-stat"><span class="stat-label">Deaths:</span> <span class="stat-value death">${stats.deaths || 0}</span></div>
+                            <div class="compact-stat"><span class="stat-label">FPS PvE:</span> <span class="stat-value fps-pve">${stats.fps_pve_kills || 0}</span></div>
+                            <div class="compact-stat"><span class="stat-label">FPS PvP:</span> <span class="stat-value fps-pvp">${stats.fps_pvp_kills || 0}</span></div>
+                            <div class="compact-stat"><span class="stat-label">FPS Death:</span> <span class="stat-value fps-death">${stats.fps_deaths || 0}</span></div>
+                            <div class="compact-stat"><span class="stat-label">Soft Deaths:</span> <span class="stat-value vehicle-soft">${stats.vehicle_destroy_soft || 0}</span></div>
+                            <div class="compact-stat"><span class="stat-label">Destructions:</span> <span class="stat-value vehicle-full">${stats.vehicle_destroy_full || 0}</span></div>
                             <div class="compact-stat"><span class="stat-label">Disconnects:</span> <span class="stat-value disconnect">${stats.disconnects || 0}</span></div>
                             <div class="compact-stat"><span class="stat-label">Stalls:</span> <span class="stat-value stall">${stats.actor_stalls || 0}</span></div>
+                            <div class="compact-stat"><span class="stat-label">Suicides:</span> <span class="stat-value suicide">${stats.suicides || 0}</span></div>
+                            <div class="compact-stat"><span class="stat-label">Corpses:</span> <span class="stat-value corpse">${stats.corpses || 0}</span></div>
                         </div>
                     </div>
                     <div class="analysis-col">
@@ -1399,7 +1878,7 @@ class StarLogsApp {
             `;
             
             displayEvents.forEach(event => {
-                const eventClass = event.type.toLowerCase().replace('_', '');
+                const eventClass = event.type.toLowerCase().replaceAll('_', '');
                 html += `
                     <div class="timeline-event ${eventClass}">
                         <span class="timeline-timestamp">${event.timestamp || 'N/A'}</span>
@@ -1422,9 +1901,9 @@ class StarLogsApp {
     formatEventDetails(event) {
         switch (event.type) {
             case 'pve_kill':
-                return `PvE Kill: ${event.details?.target || 'Unknown target'}`;
+                return `Ship PvE Kill: ${event.details?.target || 'Unknown target'}`;
             case 'pvp_kill':
-                return `PvP Kill: ${event.details?.target || 'Unknown player'}`;
+                return `Ship PvP Kill: ${event.details?.target || 'Unknown player'}`;
             case 'fps_pve_kill':
                 return `FPS PvE Kill: ${event.details?.target || 'Unknown target'}`;
             case 'fps_pvp_kill':
@@ -1440,6 +1919,33 @@ class StarLogsApp {
                     return `Actor Stall: ${event.details.player} (${event.details.stall_type}, ${event.details.length}s)`;
                 }
                 return 'Actor Stall (Crash/Freeze)';
+            case 'suicide':
+                const suicidePlayer = event.details?.victim || 'Unknown';
+                const suicideDamage = event.details?.damage_type || 'Unknown';
+                return `Suicide 💀: ${suicidePlayer} (${suicideDamage})`;
+            case 'corpse':
+                if (event.details?.player && event.details?.status) {
+                    return `Corpse 💀: ${event.details.player} - ${event.details.status}`;
+                }
+                return 'Player Corpse 💀';
+            case 'vehicle_destroy_soft':
+                const softShip = event.details?.ship_name || 'Unknown';
+                const softAttacker = event.details?.attacker || 'Unknown';
+                const softDamage = event.details?.damage_type || '';
+                const softCrew = event.details?.crew_count || 0;
+                let softText = `${softShip} disabled by ${softAttacker}`;
+                if (softDamage) softText += ` (${softDamage})`;
+                if (softCrew > 0) softText += ` +${softCrew} crew`;
+                return softText;
+            case 'vehicle_destroy_full':
+                const fullShip = event.details?.ship_name || 'Unknown';
+                const fullAttacker = event.details?.attacker || 'Unknown';
+                const fullDamage = event.details?.damage_type || '';
+                const fullCrew = event.details?.crew_count || 0;
+                let fullText = `${fullShip} destroyed by ${fullAttacker}`;
+                if (fullDamage) fullText += ` (${fullDamage})`;
+                if (fullCrew > 0) fullText += ` +${fullCrew} crew`;
+                return fullText;
             default:
                 return event.type;
         }
@@ -1505,6 +2011,83 @@ class StarLogsApp {
             this.showMessage(`Failed to export: ${error.message}`, 'error');
         }
     }
+    
+    async loadBadgeVisibility() {
+        // Load badge visibility preferences from server and apply to UI
+        try {
+            console.log('[DEBUG] Starting loadBadgeVisibility...');
+            const response = await fetch('/api/badge_visibility');
+            const data = await response.json();
+            
+            console.log('[DEBUG] Loaded badge visibility from server:', data);
+            
+            // Update filters with loaded preferences
+            Object.keys(data).forEach(key => {
+                if (key in this.filters) {
+                    this.filters[key] = data[key];
+                    console.log(`[DEBUG] Set filter ${key} to ${data[key]}`);
+                }
+            });
+            
+            // Update UI to reflect loaded preferences
+            document.querySelectorAll('.count-badge[data-filter]').forEach(badge => {
+                const filterName = badge.dataset.filter;
+                const isActive = this.filters[filterName];
+                
+                console.log(`[DEBUG] Badge ${filterName}: isActive=${isActive}`);
+                
+                if (isActive) {
+                    badge.classList.add('active');
+                } else {
+                    badge.classList.remove('active');
+                }
+            });
+            
+            // Apply filtering to existing events
+            this.filterEvents();
+            
+            console.log('[DEBUG] Badge visibility fully loaded and applied');
+        } catch (e) {
+            console.error('Error loading badge visibility:', e);
+            // Use defaults if error
+            console.log('[DEBUG] Using default filter state (all active)');
+        }
+    }
+    
+    async saveBadgeVisibility() {
+        // Save current badge visibility preferences to server.
+        try {
+            const response = await fetch('/api/badge_visibility', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(this.filters)
+            });
+            
+            const result = await response.json();
+            if (result.status === 'success') {
+                console.log('[DEBUG] Badge visibility saved');
+            } else {
+                console.warn('Failed to save badge visibility:', result);
+            }
+        } catch (e) {
+            console.error('Error saving badge visibility:', e);
+        }
+    }
+    
+    openAboutModal() {
+        // Open the about modal and load content
+        if (this.settingsMenu) {
+            this.settingsMenu.classList.add('show');
+            this.loadAboutInfo(); // Load about info when opening via ? button
+            // Switch to about tab if it exists
+            const tabBtn = document.querySelector('[data-tab="about"]');
+            if (tabBtn) {
+                tabBtn.click();
+            }
+        }
+    }
 }
 
 // Toggle section collapse
@@ -1512,14 +2095,47 @@ function toggleSection(sectionId) {
     const content = document.getElementById(`${sectionId}-content`);
     const toggle = document.getElementById(`${sectionId}-toggle`);
     
+    // Get the main section container
+    const sectionContainer = sectionId === 'events' ? 
+        document.querySelector('.summary-section') : 
+        document.querySelector('.log-section');
+    
+    // For events section, also toggle badges-section
+    const badgesSection = sectionId === 'events' ? document.querySelector('.badges-section') : null;
+    
     if (content.classList.contains('collapsed')) {
+        // Expand
         content.classList.remove('collapsed');
+        if (badgesSection) badgesSection.classList.remove('collapsed');
+        if (sectionContainer) sectionContainer.classList.remove('collapsed');
         toggle.classList.remove('collapsed');
         toggle.textContent = '▼';
     } else {
+        // Collapse - hide everything except header
         content.classList.add('collapsed');
+        if (badgesSection) badgesSection.classList.add('collapsed');
+        if (sectionContainer) sectionContainer.classList.add('collapsed');
         toggle.classList.add('collapsed');
         toggle.textContent = '▶';
+    }
+}
+
+// Toggle badges visibility
+function toggleBadges(event) {
+    event.stopPropagation();
+    const badgesContent = document.getElementById('badges-content');
+    const badgesIcon = document.querySelector('.badges-toggle-icon');
+    
+    if (badgesContent.classList.contains('collapsed')) {
+        badgesContent.classList.remove('collapsed');
+        badgesIcon.classList.remove('collapsed');
+        badgesIcon.textContent = '▼';
+        localStorage.setItem('starlogger-badges-visible', 'true');
+    } else {
+        badgesContent.classList.add('collapsed');
+        badgesIcon.classList.add('collapsed');
+        badgesIcon.textContent = '▶';
+        localStorage.setItem('starlogger-badges-visible', 'false');
     }
 }
 

@@ -123,8 +123,15 @@ class StaticHTMLGenerator:
         .stat-value.pve {{ color: #00ff88; }}
         .stat-value.pvp {{ color: #ff4444; }}
         .stat-value.death {{ color: #ff8800; }}
-        .stat-value.stall {{ color: #ff4444; }}
+        .stat-value.fps-pve {{ color: #00d4ff; }}
+        .stat-value.fps-pvp {{ color: #cc44ff; }}
+        .stat-value.fps-death {{ color: #ffaa00; }}
+        .stat-value.stall {{ color: #888888; }}
+        .stat-value.suicide {{ color: #9c27b0; }}
+        .stat-value.corpse {{ color: #dddddd; }}
         .stat-value.disconnect {{ color: #F5AC1A; }}
+        .stat-value.vehicle-soft {{ color: #ff9933; }}
+        .stat-value.vehicle-full {{ color: #ff3333; }}
         .stat-value.default {{ color: #54ADF7; }}
         .stat-label {{
             color: #a0a0a0;
@@ -183,8 +190,15 @@ class StaticHTMLGenerator:
         .event-item.pve-kill {{ border-left-color: #00ff88; }}
         .event-item.pvp-kill {{ border-left-color: #ff4444; }}
         .event-item.death {{ border-left-color: #ff8800; }}
-        .event-item.actor-stall {{ border-left-color: #ff4444; }}
+        .event-item.fps-pve-kill {{ border-left-color: #00d4ff; }}
+        .event-item.fps-pvp-kill {{ border-left-color: #cc44ff; }}
+        .event-item.fps-death {{ border-left-color: #ffaa00; }}
+        .event-item.actor-stall {{ border-left-color: #888888; }}
+        .event-item.suicide {{ border-left-color: #9c27b0; }}
+        .event-item.corpse {{ border-left-color: #dddddd; }}
         .event-item.disconnect {{ border-left-color: #F5AC1A; }}
+        .event-item.vehicle-destroy-soft {{ border-left-color: #ff9933; }}
+        .event-item.vehicle-destroy-full {{ border-left-color: #ff4444; }}
         .event-type {{
             display: inline-block;
             padding: 4px 10px;
@@ -196,8 +210,15 @@ class StaticHTMLGenerator:
         .event-type.pve-kill {{ background: #00ff88; color: #021C31; }}
         .event-type.pvp-kill {{ background: #ff4444; color: white; }}
         .event-type.death {{ background: #ff8800; color: white; }}
-        .event-type.actor-stall {{ background: #ff4444; color: white; }}
+        .event-type.fps-pve-kill {{ background: #00d4ff; color: #021C31; }}
+        .event-type.fps-pvp-kill {{ background: #cc44ff; color: white; }}
+        .event-type.fps-death {{ background: #ffaa00; color: white; }}
+        .event-type.actor-stall {{ background: #888888; color: white; }}
+        .event-type.suicide {{ background: #9c27b0; color: white; }}
+        .event-type.corpse {{ background: #dddddd; color: #333; }}
         .event-type.disconnect {{ background: #F5AC1A; color: #021C31; }}
+        .event-type.vehicle-destroy-soft {{ background: #ff9933; color: white; }}
+        .event-type.vehicle-destroy-full {{ background: #ff4444; color: white; }}
         .event-timestamp {{
             color: #a0a0a0;
             font-size: 0.85rem;
@@ -235,19 +256,47 @@ class StaticHTMLGenerator:
         <div class="stats">
             <div class="stat-card">
                 <div class="stat-value pve">{self.stats.get('pve_kills', 0)}</div>
-                <div class="stat-label">PvE Kills</div>
+                <div class="stat-label">Ship PvE Kills</div>
             </div>
             <div class="stat-card">
                 <div class="stat-value pvp">{self.stats.get('pvp_kills', 0)}</div>
-                <div class="stat-label">PvP Kills</div>
+                <div class="stat-label">Ship PvP Kills</div>
             </div>
             <div class="stat-card">
                 <div class="stat-value death">{self.stats.get('deaths', 0)}</div>
                 <div class="stat-label">Deaths</div>
             </div>
             <div class="stat-card">
+                <div class="stat-value fps-pve">{self.stats.get('fps_pve_kills', 0)}</div>
+                <div class="stat-label">FPS PvE</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value fps-pvp">{self.stats.get('fps_pvp_kills', 0)}</div>
+                <div class="stat-label">FPS PvP</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value fps-death">{self.stats.get('fps_deaths', 0)}</div>
+                <div class="stat-label">FPS Deaths</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value vehicle-soft">{self.stats.get('vehicle_destroy_soft', 0)}</div>
+                <div class="stat-label">Soft Deaths</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value vehicle-full">{self.stats.get('vehicle_destroy_full', 0)}</div>
+                <div class="stat-label">Destructions</div>
+            </div>
+            <div class="stat-card">
                 <div class="stat-value stall">{self.stats.get('actor_stalls', 0)}</div>
                 <div class="stat-label">Actor Stalls</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value suicide">{self.stats.get('suicides', 0)}</div>
+                <div class="stat-label">Suicides</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value corpse">{self.stats.get('corpses', 0)}</div>
+                <div class="stat-label">Corpses</div>
             </div>
             <div class="stat-card">
                 <div class="stat-value disconnect">{self.stats.get('disconnects', 0)}</div>
@@ -396,6 +445,33 @@ class StaticHTMLGenerator:
                 if ship:
                     extra_details.append(f"📍 {ship}")
                     
+            elif event_type == 'fps_pve_kill':
+                killer = details.get('killer', 'Unknown')
+                victim = details.get('victim', 'Unknown')
+                weapon = details.get('weapon', '')
+                event_text = f"{killer} killed {victim} (FPS)"
+                
+                if weapon and weapon != 'unknown':
+                    extra_details.append(f"🎯 {weapon}")
+                    
+            elif event_type == 'fps_pvp_kill':
+                killer = details.get('killer', 'Unknown')
+                victim = details.get('victim', 'Unknown')
+                weapon = details.get('weapon', '')
+                event_text = f"{killer} killed {victim} (FPS)"
+                
+                if weapon and weapon != 'unknown':
+                    extra_details.append(f"🎯 {weapon}")
+                    
+            elif event_type == 'fps_death':
+                killer = details.get('killer', 'Unknown')
+                victim = details.get('victim', 'Unknown')
+                event_text = f"{victim} was killed by {killer} (FPS)"
+                
+                damage_type = details.get('damage_type')
+                if damage_type:
+                    extra_details.append(f"💥 {damage_type}")
+                    
             elif event_type == 'actor_stall':
                 player = details.get('player')
                 stall_type = details.get('stall_type')
@@ -404,6 +480,53 @@ class StaticHTMLGenerator:
                     event_text = f"Actor Stall: {player} ({stall_type}, {length}s)"
                 else:
                     event_text = "Game disconnect/crash (Actor Stall)"
+                    
+            elif event_type == 'suicide':
+                victim = details.get('victim', 'Unknown')
+                damage_type = details.get('damage_type', 'Unknown')
+                event_text = f"💀 Suicide: {victim} ({damage_type})"
+                
+            elif event_type == 'corpse':
+                player = details.get('player', 'Unknown')
+                status = details.get('status', '')
+                event_text = f"💀 Corpse: {player} - {status}"
+                
+            elif event_type == 'vehicle_destroy_soft':
+                ship_name = details.get('ship_name', 'Unknown')
+                attacker = details.get('attacker', 'Unknown')
+                damage_type = details.get('damage_type', 'Unknown')
+                crew_count = details.get('crew_count', 0)
+                crew_names = details.get('crew_names', [])
+                
+                event_text = f"{ship_name} disabled by {attacker}"
+                
+                # Add damage type badge
+                damage_color = self._get_damage_type_color(damage_type)
+                extra_details.append(f"<span style=\"color: {damage_color};\">💥 {damage_type}</span>")
+                
+                # Add crew count if any
+                if crew_count > 0:
+                    crew_list = ', '.join(crew_names)
+                    extra_details.append(f"👥 +{crew_count} crew: {crew_list}")
+                    
+            elif event_type == 'vehicle_destroy_full':
+                ship_name = details.get('ship_name', 'Unknown')
+                attacker = details.get('attacker', 'Unknown')
+                damage_type = details.get('damage_type', 'Unknown')
+                crew_count = details.get('crew_count', 0)
+                crew_names = details.get('crew_names', [])
+                
+                event_text = f"{ship_name} destroyed by {attacker}"
+                
+                # Add damage type badge
+                damage_color = self._get_damage_type_color(damage_type)
+                extra_details.append(f"<span style=\"color: {damage_color};\">💥 {damage_type}</span>")
+                
+                # Add crew count if any
+                if crew_count > 0:
+                    crew_list = ', '.join(crew_names)
+                    extra_details.append(f"👥 +{crew_count} crew: {crew_list}")
+                    
             elif event_type == 'disconnect':
                 event_text = "Network disconnect"
             else:
@@ -416,12 +539,30 @@ class StaticHTMLGenerator:
             html_parts.append(f'''
             <div class="event-item {event_type.replace('_', '-')}">
                 <span class="event-timestamp">{timestamp}</span>
-                <span class="event-type {event_type.replace('_', '-')}">{event_type.upper().replace('_', ' ')}</span>
+                <span class="event-type {event_type.replace('_', '-')}">{'SHIP ' + event_type.upper().replace('_', ' ') if event_type in ['pve_kill', 'pvp_kill'] else event_type.upper().replace('_', ' ')}</span>
                 <span class="event-details">{event_text}</span>
             </div>
             ''')
         
         return ''.join(html_parts)
+    
+    def _get_damage_type_color(self, damage_type: str) -> str:
+        """
+        Get color code for damage type.
+        
+        Args:
+            damage_type: Damage type string (Combat, Collision, SelfDestruct, GameRules)
+            
+        Returns:
+            Hex color code
+        """
+        damage_colors = {
+            'combat': '#ff4444',
+            'collision': '#ff9933',
+            'selfdestruct': '#9933ff',
+            'gamerules': '#666666'
+        }
+        return damage_colors.get(damage_type.lower(), '#54ADF7')
     
     def _generate_full_html(self) -> str:
         """Generate full interactive HTML report (future enhancement)."""

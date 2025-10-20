@@ -6,6 +6,7 @@ Handles saving and loading user preferences.
 
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Optional, Dict, Any
 
@@ -19,7 +20,21 @@ class ConfigManager:
         'web_port': 3111,
         'auto_detect': True,
         'custom_installations': [],
-        'debug_mode': False
+        'debug_mode': False,
+        'poll_interval': 1.0,  # Log polling interval in seconds (1.0 = once per second)
+        'badge_visibility': {
+            'pve': True,
+            'pvp': True,
+            'deaths': True,
+            'fps_pve': True,
+            'fps_pvp': True,
+            'fps_death': True,
+            'disconnects': True,
+            'vehicle_soft': True,
+            'vehicle_full': True,
+            'corpse': True,
+            'suicide': True
+        }
     }
     
     def __init__(self, config_file: str = "starlogs_config.json"):
@@ -41,7 +56,7 @@ class ConfigManager:
         """Load configuration from file, create default if missing."""
         if self.config_path.exists():
             try:
-                with open(self.config_path, 'r') as f:
+                with open(self.config_path, 'r', encoding='utf-8') as f:
                     loaded = json.load(f)
                     # Merge with defaults to handle new keys
                     config = self.DEFAULT_CONFIG.copy()
@@ -62,7 +77,8 @@ class ConfigManager:
             
             print(f"[Config] Attempting to save config to: {self.config_path}")
             with open(self.config_path, 'w', encoding='utf-8') as f:
-                json.dump(config_to_save, f, indent=2)
+                # Use ensure_ascii=False to allow non-ASCII characters like → 
+                json.dump(config_to_save, f, indent=2, ensure_ascii=False)
             print(f"[Config] Config saved successfully")
             return True
         except IOError as e:

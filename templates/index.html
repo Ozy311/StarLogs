@@ -3,11 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>StarLogs - Star Citizen Log Monitor</title>
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='settings_tabs.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='history.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ version }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='settings_tabs.css') }}?v={{ version }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='history.css') }}?v={{ version }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     <div class="container">
@@ -17,7 +21,7 @@
                 <img src="/static/starlogs.png" alt="StarLogs" class="logo" onerror="this.style.display='none'">
                 <div class="title-group">
                     <h1><span class="tagline">FOR THE CUBE!</span></h1>
-                    <div class="branding">Written by Ozy311 | CUBE Org</div>
+                    <div class="branding">StarLogs v{{ version }} | Written by Ozy311 | CUBE Org</div>
                 </div>
             </div>
                 <div class="header-right">
@@ -35,13 +39,54 @@
                     <button id="history-btn" class="icon-btn" title="Historical Logs">
                         <span class="history-icon">📜</span>
                     </button>
+                    <button id="export-current-btn" class="icon-btn" title="Export Current Log to HTML">
+                        <span class="export-icon">💾</span>
+                    </button>
                     <button id="settings-btn" class="icon-btn" title="Settings">
                         <span class="hamburger-icon">☰</span>
                     </button>
+                    
+                    <!-- Vertical Icon Stack (WiFi, Theme, About) -->
+                    <div class="header-icon-stack">
+                        <button id="connection-btn" class="header-icon-btn wifi-btn" title="Server Connection Status: Connecting...">
+                            <i class="fas fa-wifi"></i>
+                        </button>
+                        <button id="theme-toggle-btn" class="header-icon-btn theme-btn" title="Dark Mode (click to toggle to Light Mode)">
+                            <i class="fas fa-sun"></i>
+                        </button>
+                        <button id="about-btn" class="header-icon-btn about-btn" title="About StarLogs" data-tooltip="About">
+                            <i class="fas fa-circle-question"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- Mobile Hamburger Menu -->
+                    <div style="position: relative;">
+                        <button id="mobile-menu-toggle" class="mobile-menu-toggle" title="Menu">
+                            <i class="fas fa-bars"></i>
+                        </button>
+                        <div id="mobile-menu-flyout" class="mobile-menu-flyout">
+                            <button class="mobile-menu-item" id="mobile-version-btn">
+                                <i class="fas fa-circle"></i>
+                                <span id="mobile-version-text">LIVE</span>
+                            </button>
+                            <button class="mobile-menu-item" id="mobile-history-btn">
+                                <i class="fas fa-book"></i>
+                                <span>History</span>
+                            </button>
+                            <button class="mobile-menu-item" id="mobile-export-btn">
+                                <i class="fas fa-download"></i>
+                                <span>Export</span>
+                            </button>
+                            <button class="mobile-menu-item" id="mobile-settings-btn">
+                                <i class="fas fa-cog"></i>
+                                <span>Settings</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="status-bar">
-                <div class="status-item">
+                <div class="status-item" id="connection-status-item" style="display: none;">
                     <span class="status-label">Connection:</span>
                     <span id="connection-status" class="status-value">Connecting...</span>
                 </div>
@@ -67,30 +112,32 @@
                     <span class="toggle-icon" id="events-toggle">▼</span>
                     Event Summary
                 </h2>
-                <div class="summary-counts">
-                    <span class="count-badge pve" id="pve-count">0 PvE</span>
-                    <span class="count-badge pvp" id="pvp-count">0 PvP</span>
-                    <span class="count-badge death" id="death-count">0 Deaths</span>
-                    <span class="count-badge disconnect" id="disconnect-count">0 Stalls</span>
+            </div>
+            <div class="badges-section">
+                <div class="badges-header">
+                    <button id="badges-toggle-btn" class="badges-toggle" onclick="toggleBadges(event)" title="Show/hide filters">
+                        <span class="badges-toggle-icon">▼</span>
+                        <span class="badges-label">Filters</span>
+                    </button>
+                    <button id="invert-badges-btn" class="btn-invert" title="Invert all filter selections">⇅ Invert</button>
+                    <button id="clear-events" class="btn-action" title="Clear all events">Clear</button>
+                    <button id="reprocess-log" class="btn-action" title="Reprocess log">↻ Reprocess</button>
+                </div>
+                <div id="badges-content" class="summary-counts" onclick="event.stopPropagation()">
+                    <span class="count-badge pve active" id="pve-count" data-filter="pve" title="Click to hide/show">0 Ship PvE</span>
+                    <span class="count-badge pvp active" id="pvp-count" data-filter="pvp" title="Click to hide/show">0 Ship PvP</span>
+                    <span class="count-badge death active" id="death-count" data-filter="deaths" title="Click to hide/show">0 Deaths</span>
+                    <span class="count-badge fps-pve active" id="fps-pve-count" data-filter="fps_pve" title="Click to hide/show">0 FPS PvE</span>
+                    <span class="count-badge fps-pvp active" id="fps-pvp-count" data-filter="fps_pvp" title="Click to hide/show">0 FPS PvP</span>
+                    <span class="count-badge fps-death active" id="fps-death-count" data-filter="fps_death" title="Click to hide/show">0 FPS Death</span>
+                    <span class="count-badge suicide active" id="suicide-count" data-filter="suicide" title="Click to hide/show">0 Suicides</span>
+                    <span class="count-badge corpse active" id="corpse-count" data-filter="corpse" title="Click to hide/show">0 Corpses</span>
+                    <span class="count-badge disconnect active" id="disconnect-count" data-filter="disconnects" title="Click to hide/show">0 Stalls</span>
+                    <span class="count-badge vehicle-soft active" id="vehicle-soft-count" data-filter="vehicle_soft" title="Click to hide/show">0 Soft</span>
+                    <span class="count-badge vehicle-full active" id="vehicle-full-count" data-filter="vehicle_full" title="Click to hide/show">0 Full</span>
                 </div>
             </div>
             <div id="events-content" class="section-content">
-                <div class="controls">
-                    <button id="clear-events">Clear Events</button>
-                    <button id="reprocess-log">↻ Reprocess Log</button>
-                    <label>
-                        <input type="checkbox" id="show-pve" checked> PvE Kills
-                    </label>
-                    <label>
-                        <input type="checkbox" id="show-pvp" checked> PvP Kills
-                    </label>
-                    <label>
-                        <input type="checkbox" id="show-deaths" checked> Deaths
-                    </label>
-                    <label>
-                        <input type="checkbox" id="show-disconnects" checked> Stalls
-                    </label>
-                </div>
                 <div id="events-list" class="events-list">
                     <div class="empty-state">No events yet. Waiting for game activity...</div>
                 </div>
@@ -112,6 +159,9 @@
                 <div class="log-controls-inline">
                     <label>
                         <input type="checkbox" id="auto-scroll" checked> Auto-scroll
+                    </label>
+                    <label>
+                        <input type="checkbox" id="wrap-text"> Wrap Text
                     </label>
                     <button id="clear-log">Clear</button>
                 </div>
@@ -186,6 +236,16 @@
                 <!-- About Tab -->
                 <div id="about-tab" class="tab-content">
                     <div class="about-section">
+                        <h4>Support StarLogs</h4>
+                        <p>If you enjoy StarLogs, consider supporting development:</p>
+                        <p style="margin-top: 10px;">
+                            <a href="https://paypal.me/Ozy311" target="_blank" style="color: #54ADF7; text-decoration: none; font-weight: 500;">💝 Donate via PayPal</a>
+                        </p>
+                        <p style="margin-top: 8px; color: #a0a0a0; font-size: 0.9rem;">
+                            🎉 Patreon support coming soon!
+                        </p>
+                    </div>
+                    <div class="about-section">
                         <h3>StarLogs <span id="about-version-inline">v1.0.0</span></h3>
                         <p class="about-tagline">FOR THE CUBE!</p>
                         <p><strong>Author:</strong> Ozy311</p>
@@ -196,29 +256,6 @@
                         <h4>Features</h4>
                         <ul id="about-features-inline"></ul>
                     </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- About Modal -->
-    <div id="about-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>About StarLogs</h2>
-                <button class="close-btn" onclick="closeAbout()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="about-section">
-                    <h3>StarLogs <span id="about-version">v1.0.0</span></h3>
-                    <p class="about-tagline">FOR THE CUBE!</p>
-                    <p><strong>Author:</strong> Ozy311</p>
-                    <p><strong>Organization:</strong> CUBE Org</p>
-                    <p class="about-description" id="about-description">Star Citizen Log Parser and Event Tracker</p>
-                </div>
-                <div class="about-section">
-                    <h4>Features</h4>
-                    <ul id="about-features"></ul>
                 </div>
             </div>
         </div>
@@ -280,7 +317,7 @@
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='app.js') }}"></script>
+    <script src="{{ url_for('static', filename='app.js') }}?v={{ version }}"></script>
 </body>
 </html>
 

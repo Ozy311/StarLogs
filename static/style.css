@@ -71,14 +71,20 @@ body {
     line-height: 1.6;
     margin: 0;
     padding: 0;
-    overflow-x: hidden;
+    overflow: hidden; /* Prevent any scrollbars on body */
+    height: 100vh;
+    width: 100vw;
 }
 
 .container {
-    max-width: 98%;
+    max-width: 100%;
     width: 100%;
-    margin: 0 auto;
+    height: 100vh;
+    margin: 0;
     padding: 15px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Prevent container scrolling */
 }
 
 /* Header */
@@ -88,6 +94,10 @@ header {
     border-radius: 8px;
     margin-bottom: 15px;
     border: 1px solid var(--border-color);
+    flex-shrink: 0; /* Fixed size, don't shrink */
+    overflow: visible;
+    position: relative;
+    z-index: 100;
 }
 
 /* Version Selector - Compact Header Style */
@@ -309,9 +319,21 @@ header h1 .tagline {
 .log-section {
     background: var(--bg-secondary);
     border-radius: 8px;
-    margin-bottom: 15px;
     border: 1px solid var(--border-color);
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0; /* Important for flexbox overflow */
+}
+
+.summary-section {
+    flex: 1 1 50%; /* Default: 50% of available space, can grow/shrink */
+    margin-bottom: 0; /* Remove margin, divider provides spacing */
+}
+
+.log-section {
+    flex: 1 1 50%; /* Default: 50% of available space, can grow/shrink */
+    margin-bottom: 0;
 }
 
 .section-header {
@@ -323,6 +345,7 @@ header h1 .tagline {
     align-items: center;
     user-select: none;
     transition: background 0.2s;
+    flex-shrink: 0; /* Fixed size header */
 }
 
 .section-header:hover {
@@ -350,30 +373,172 @@ header h1 .tagline {
 
 .section-content {
     padding: 20px;
-    max-height: 2000px;
+    flex: 1 1 auto; /* Fill remaining space in section */
     overflow: hidden;
-    transition: max-height 0.3s ease, padding 0.3s ease;
+    transition: padding 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    min-height: 0; /* Important for flexbox overflow */
 }
 
 .section-content.collapsed {
-    max-height: 0;
+    flex: 0 0 0; /* Collapse to 0 */
     padding: 0 20px;
 }
 
 /* Summary Counts */
 .summary-counts {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    width: 100%;
+    padding: 4px 0;
+}
+
+.badges-section {
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-color);
+    padding: 12px 20px;
+    flex-shrink: 0;
+}
+
+.badges-header {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 8px;
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+    margin-bottom: 10px;
+}
+
+.badges-toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: var(--bg-secondary);
+    border: 1px solid var(--accent-blue);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.badges-toggle:hover {
+    background: var(--bg-primary);
+    border-color: var(--accent-blue);
+    transform: translateY(-1px);
+}
+
+.badges-toggle:active {
+    transform: translateY(0);
+}
+
+.badges-toggle-icon {
+    display: inline-block;
+    width: 14px;
+    transition: transform 0.3s;
+}
+
+.badges-toggle-icon.collapsed {
+    transform: rotate(-90deg);
+}
+
+#badges-content.collapsed {
+    display: none;
+}
+
+.summary-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-shrink: 0;
+    margin-right: 10px;
+}
+
+.btn-invert {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: var(--bg-secondary);
+    border: 1px solid var(--accent-blue);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.btn-invert:hover {
+    background: var(--bg-primary);
+    border-color: var(--accent-green);
+    transform: translateY(-1px);
+}
+
+.btn-invert:active {
+    transform: translateY(0);
+}
+
+.btn-action {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: var(--bg-secondary);
+    border: 1px solid var(--accent-blue);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.btn-action:hover {
+    background: var(--bg-primary);
+    border-color: var(--accent-orange);
+    transform: translateY(-1px);
+}
+
+.btn-action:active {
+    transform: translateY(0);
 }
 
 .count-badge {
-    padding: 4px 12px;
-    border-radius: 12px;
-    font-size: 0.85rem;
-    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    font-weight: 700;
     background: var(--bg-secondary);
     border: 2px solid;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    opacity: 0.4;
+    white-space: nowrap;
+    flex: 0 1 auto;
+    min-width: fit-content;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.count-badge.active {
+    opacity: 1;
+    font-weight: 700;
+    border-width: 2px;
+    transform: none;
+}
+
+.count-badge:hover {
+    transform: scale(1.08);
+    border-width: 2px;
 }
 
 .count-badge.pve {
@@ -396,6 +561,41 @@ header h1 .tagline {
     color: var(--disconnect-color);
 }
 
+.count-badge.fps-pve {
+    border-color: #00d4ff;
+    color: #00d4ff;
+}
+
+.count-badge.fps-pvp {
+    border-color: #cc44ff;
+    color: #cc44ff;
+}
+
+.count-badge.fps-death {
+    border-color: #ffeb3b;
+    color: #ffeb3b;
+}
+
+.count-badge.suicide {
+    border-color: #9c27b0;
+    color: #9c27b0;
+}
+
+.count-badge.corpse {
+    border-color: #dddddd;
+    color: #dddddd;
+}
+
+.count-badge.vehicle-soft {
+    border-color: #ff9933;
+    color: #ff9933;
+}
+
+.count-badge.vehicle-full {
+    border-color: #ff3333;
+    color: #ff3333;
+}
+
 /* Controls */
 .controls {
     display: flex;
@@ -405,6 +605,7 @@ header h1 .tagline {
     padding: 10px;
     background: var(--bg-tertiary);
     border-radius: 6px;
+    flex-shrink: 0; /* Fixed size, don't shrink */
 }
 
 .controls label {
@@ -417,31 +618,37 @@ header h1 .tagline {
 
 .controls input[type="checkbox"] {
     cursor: pointer;
+    width: 16px;
+    height: 16px;
 }
 
-.controls button,
-.log-controls-inline button {
-    background: var(--bg-tertiary);
-    color: white;
-    border: 2px solid #54ADF7;
-    padding: 6px 16px;
-    border-radius: 4px;
+.controls button {
+    padding: 8px 16px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--accent-blue);
+    color: var(--text-primary);
+    border-radius: 6px;
     cursor: pointer;
     font-size: 0.9rem;
-    transition: all 0.2s;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    white-space: nowrap;
 }
 
-.controls button:hover,
-.log-controls-inline button:hover {
-    background: var(--bg-secondary);
-    border-color: #F5AC1A;
+.controls button:hover {
+    background: var(--bg-primary);
     box-shadow: 0 0 12px rgba(84, 173, 247, 0.4);
-    transform: translateY(-1px);
+    transform: scale(1.05);
+}
+
+.controls button:active {
+    transform: scale(0.95);
 }
 
 .log-controls-inline {
     display: flex;
     gap: 10px;
+    flex-shrink: 0; /* Fixed size, don't shrink */
     align-items: center;
 }
 
@@ -455,8 +662,8 @@ header h1 .tagline {
 
 /* Events List */
 .events-list {
-    height: 400px;
-    min-height: 150px;
+    flex: 1 1 auto; /* Fill available space */
+    min-height: 0; /* Important for flexbox overflow */
     overflow-y: auto;
     background: var(--bg-primary);
     border-radius: 6px;
@@ -503,16 +710,36 @@ header h1 .tagline {
     border-left-color: var(--disconnect-color);
 }
 
+.event-item.actor_stall {
+    border-left-color: #888888;
+}
+
 .event-item.fps_pve_kill {
-    border-left-color: #44ff88;
+    border-left-color: #00d4ff;
 }
 
 .event-item.fps_pvp_kill {
-    border-left-color: #ff6644;
+    border-left-color: #cc44ff;
 }
 
 .event-item.fps_death {
-    border-left-color: #ffaa00;
+    border-left-color: #ffeb3b;
+}
+
+.event-item.suicide {
+    border-left-color: #9c27b0;
+}
+
+.event-item.corpse {
+    border-left-color: #dddddd;
+}
+
+.event-item.vehicle_destroy_soft {
+    border-left-color: #ff9933;
+}
+
+.event-item.vehicle_destroy_full {
+    border-left-color: #ff3333;
 }
 
 .event-time {
@@ -554,19 +781,69 @@ header h1 .tagline {
     color: #fff;
 }
 
+.event-type.stall {
+    background: #888888;
+    color: #fff;
+}
+
+.event-type.suicide {
+    background: #9c27b0;
+    color: #fff;
+}
+
+.event-type.corpse {
+    background: #dddddd;
+    color: #333;
+}
+
 .event-type.fps-pve {
-    background: #44ff88;
+    background: #00d4ff;
     color: #000;
 }
 
 .event-type.fps-pvp {
-    background: #ff6644;
+    background: #cc44ff;
     color: #fff;
 }
 
 .event-type.fps-death {
     background: #ffaa00;
     color: #000;
+}
+
+.event-type.vehicle-combat {
+    background: #ff4444;
+    color: #fff;
+}
+
+.event-type.vehicle-collision {
+    background: #ff9933;
+    color: #fff;
+}
+
+.event-type.vehicle-selfdestruct {
+    background: #9933ff;
+    color: #fff;
+}
+
+.event-type.vehicle-gamerules {
+    background: #666666;
+    color: #fff;
+}
+
+.event-type.vehicle-default {
+    background: #54ADF7;
+    color: #fff;
+}
+
+.event-type.vehicle-soft {
+    background: #ff9933;
+    color: #fff;
+}
+
+.event-type.vehicle-full {
+    background: #ff3333;
+    color: #fff;
 }
 
 .event-summary {
@@ -585,17 +862,63 @@ header h1 .tagline {
     margin-top: 4px;
 }
 
+/* Crew Indicator and List */
+.crew-indicator {
+    color: var(--accent-blue);
+    font-size: 0.85rem;
+    transition: color 0.2s;
+}
+
+.crew-indicator.clickable {
+    cursor: pointer;
+    text-decoration: underline dotted;
+}
+
+.crew-indicator.clickable:hover {
+    color: var(--accent-yellow);
+}
+
+.crew-list {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: rgba(84, 173, 247, 0.1);
+    border-left: 2px solid var(--accent-blue);
+    border-radius: 4px;
+}
+
+.crew-list.hidden {
+    display: none;
+}
+
+.crew-member {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    padding: 3px 0;
+}
+
+.crew-member:hover {
+    color: var(--text-primary);
+}
+
 /* Raw Log Output */
 .log-output {
-    height: 300px;
-    min-height: 150px;
+    flex: 1 1 auto; /* Fill available space */
+    min-height: 0; /* Important for flexbox overflow */
     overflow-y: auto;
+    overflow-x: auto; /* Allow horizontal scrolling when no wrap */
     background: var(--bg-primary);
     border-radius: 6px;
     padding: 10px;
     font-family: 'Courier New', monospace;
     font-size: 0.8rem;
     line-height: 1.4;
+    white-space: nowrap; /* Default: no wrap */
+}
+
+.log-output.wrap-text {
+    white-space: pre-wrap; /* Wrap text when enabled */
+    word-wrap: break-word;
+    overflow-x: hidden; /* Hide horizontal scroll when wrapping */
 }
 
 .log-line {
@@ -686,8 +1009,9 @@ header h1 .tagline {
     align-items: center;
     justify-content: center;
     position: relative;
-    margin: 10px 0;
+    margin: 0; /* Remove margin, rely on flex gap if needed */
     transition: background 0.2s;
+    flex-shrink: 0; /* Fixed size divider */
 }
 
 .divider:hover {
@@ -1052,6 +1376,13 @@ header h1 .tagline {
     
     .summary-counts {
         width: 100%;
+        gap: 6px;
+    }
+    
+    .count-badge {
+        font-size: 0.75rem;
+        padding: 4px 8px;
+        flex: 0 1 auto;
     }
     
     .controls {
