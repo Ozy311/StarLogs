@@ -228,12 +228,19 @@ class LogMonitor:
             try:
                 for line in f:
                     if line.strip():
-                        self.line_callback(line.rstrip('\n'))
-                        line_count += 1
+                        try:
+                            self.line_callback(line.rstrip('\n'))
+                            line_count += 1
+                        except Exception as callback_error:
+                            print(f"[ERROR] Failed to process log line: {callback_error}")
+                            # Continue processing other lines
             finally:
                 f.close()
+                print(f"[INFO] Replay complete: processed {line_count} lines")
         except Exception as e:
-            print(f"Error replaying log file: {e}")
+            print(f"[ERROR] Error replaying log file: {e}")
+            import traceback
+            traceback.print_exc()
         
         return line_count
     

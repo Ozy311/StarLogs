@@ -123,20 +123,28 @@ class WebServer:
                     self.sse_queues.append(client_queue)
                 
                 # Send event history FIRST so they show up right away
+                event_history_count = 0
                 with self.event_history_lock:
+                    event_history_count = len(self.event_history)
                     for event_data in self.event_history:
                         try:
                             client_queue.put_nowait(event_data)
                         except queue.Full:
+                            print(f"[WARNING] Client queue full when sending event history!")
                             break
                 
                 # Then send raw log line history
+                log_history_count = 0
                 with self.log_line_history_lock:
+                    log_history_count = len(self.log_line_history)
                     for log_data in self.log_line_history:
                         try:
                             client_queue.put_nowait(log_data)
                         except queue.Full:
+                            print(f"[WARNING] Client queue full when sending log history!")
                             break
+                
+                print(f"[DEBUG] New SSE client connected. Sent {event_history_count} events and {log_history_count} log lines from history")
                 
                 try:
                     while True:
@@ -490,7 +498,11 @@ class WebServer:
             with self.log_line_history_lock:
                 self.log_line_history.append(separator_message)
             self.broadcast_message(separator_message)
-            print(f"[DEBUG] Separator sent. Event history size: {len(self.event_history)}")
+            with self.event_history_lock:
+                event_count = len(self.event_history)
+            with self.log_line_history_lock:
+                log_count = len(self.log_line_history)
+            print(f"[DEBUG] Replay complete! Event history: {event_count} events, Raw log history: {log_count} lines")
             return
         
         # Update statistics
@@ -498,10 +510,11 @@ class WebServer:
             self.stats['total_lines'] += 1
         
         # Parse for events
-        event = self.event_parser.parse_line(line)
-        
-        if event:
-            print(f"[DEBUG] Parsed event: {event.type.value} - {event.details.get('killer', 'N/A')} killed {event.details.get('victim', 'N/A')}")
+        try:
+            event = self.event_parser.parse_line(line)
+        except Exception as e:
+            print(f"[ERROR] Failed to parse event from line: {e}")
+            event = None
         
         if event:
             # Handle vehicle destruction events
@@ -621,9 +634,20 @@ class WebServer:
                 # Keep only last N events
                 if len(self.event_history) > self.max_history:
                     self.event_history = self.event_history[-self.max_history:]
+                current_event_count = len(self.event_history)
+            
+            # Debug: Print every 50th event to show progress
+            if current_event_count % 50 == 0:
+                print(f"[DEBUG] Event history now at {current_event_count} events (type: {event.type.value})")
             
             # Broadcast event to connected clients
+            with self.sse_lock:
+                client_count = len(self.sse_queues)
             self.broadcast_message(event_message)
+            
+            # Debug: Log first few events to verify they're being created correctly
+            if current_event_count <= 5:
+                print(f"[DEBUG] Event #{current_event_count}: type={event.type.value}, details={list(event.details.keys())}")
         
         # Create raw log line message
         log_line_message = {

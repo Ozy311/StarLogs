@@ -71,14 +71,20 @@ body {
     line-height: 1.6;
     margin: 0;
     padding: 0;
-    overflow-x: hidden;
+    overflow: hidden; /* Prevent any scrollbars on body */
+    height: 100vh;
+    width: 100vw;
 }
 
 .container {
-    max-width: 98%;
+    max-width: 100%;
     width: 100%;
-    margin: 0 auto;
+    height: 100vh;
+    margin: 0;
     padding: 15px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Prevent container scrolling */
 }
 
 /* Header */
@@ -88,6 +94,7 @@ header {
     border-radius: 8px;
     margin-bottom: 15px;
     border: 1px solid var(--border-color);
+    flex-shrink: 0; /* Fixed size, don't shrink */
 }
 
 /* Version Selector - Compact Header Style */
@@ -309,9 +316,21 @@ header h1 .tagline {
 .log-section {
     background: var(--bg-secondary);
     border-radius: 8px;
-    margin-bottom: 15px;
     border: 1px solid var(--border-color);
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0; /* Important for flexbox overflow */
+}
+
+.summary-section {
+    flex: 1 1 50%; /* Default: 50% of available space, can grow/shrink */
+    margin-bottom: 0; /* Remove margin, divider provides spacing */
+}
+
+.log-section {
+    flex: 1 1 50%; /* Default: 50% of available space, can grow/shrink */
+    margin-bottom: 0;
 }
 
 .section-header {
@@ -323,6 +342,7 @@ header h1 .tagline {
     align-items: center;
     user-select: none;
     transition: background 0.2s;
+    flex-shrink: 0; /* Fixed size header */
 }
 
 .section-header:hover {
@@ -350,13 +370,16 @@ header h1 .tagline {
 
 .section-content {
     padding: 20px;
-    max-height: 2000px;
+    flex: 1 1 auto; /* Fill remaining space in section */
     overflow: hidden;
-    transition: max-height 0.3s ease, padding 0.3s ease;
+    transition: padding 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    min-height: 0; /* Important for flexbox overflow */
 }
 
 .section-content.collapsed {
-    max-height: 0;
+    flex: 0 0 0; /* Collapse to 0 */
     padding: 0 20px;
 }
 
@@ -461,6 +484,7 @@ header h1 .tagline {
     padding: 10px;
     background: var(--bg-tertiary);
     border-radius: 6px;
+    flex-shrink: 0; /* Fixed size, don't shrink */
 }
 
 .controls label {
@@ -498,6 +522,7 @@ header h1 .tagline {
 .log-controls-inline {
     display: flex;
     gap: 10px;
+    flex-shrink: 0; /* Fixed size, don't shrink */
     align-items: center;
 }
 
@@ -511,8 +536,8 @@ header h1 .tagline {
 
 /* Events List */
 .events-list {
-    height: 400px;
-    min-height: 150px;
+    flex: 1 1 auto; /* Fill available space */
+    min-height: 0; /* Important for flexbox overflow */
     overflow-y: auto;
     background: var(--bg-primary);
     border-radius: 6px;
@@ -751,15 +776,23 @@ header h1 .tagline {
 
 /* Raw Log Output */
 .log-output {
-    height: 300px;
-    min-height: 150px;
+    flex: 1 1 auto; /* Fill available space */
+    min-height: 0; /* Important for flexbox overflow */
     overflow-y: auto;
+    overflow-x: auto; /* Allow horizontal scrolling when no wrap */
     background: var(--bg-primary);
     border-radius: 6px;
     padding: 10px;
     font-family: 'Courier New', monospace;
     font-size: 0.8rem;
     line-height: 1.4;
+    white-space: nowrap; /* Default: no wrap */
+}
+
+.log-output.wrap-text {
+    white-space: pre-wrap; /* Wrap text when enabled */
+    word-wrap: break-word;
+    overflow-x: hidden; /* Hide horizontal scroll when wrapping */
 }
 
 .log-line {
@@ -850,8 +883,9 @@ header h1 .tagline {
     align-items: center;
     justify-content: center;
     position: relative;
-    margin: 10px 0;
+    margin: 0; /* Remove margin, rely on flex gap if needed */
     transition: background 0.2s;
+    flex-shrink: 0; /* Fixed size divider */
 }
 
 .divider:hover {

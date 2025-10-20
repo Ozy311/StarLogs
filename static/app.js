@@ -127,9 +127,13 @@ class StarLogsApp {
         
         // Controls
         this.autoScrollCheckbox = document.getElementById('auto-scroll');
+        this.wrapTextCheckbox = document.getElementById('wrap-text');
         this.clearEventsBtn = document.getElementById('clear-events');
         this.clearLogBtn = document.getElementById('clear-log');
         this.reprocessBtn = document.getElementById('reprocess-log');
+        
+        // Load saved preferences
+        this.loadLogPreferences();
     }
     
     attachEventListeners() {
@@ -145,6 +149,17 @@ class StarLogsApp {
         
         this.autoScrollCheckbox.addEventListener('change', (e) => {
             this.autoScroll = e.target.checked;
+            localStorage.setItem('starlogger-auto-scroll', this.autoScroll);
+        });
+        
+        this.wrapTextCheckbox.addEventListener('change', (e) => {
+            const wrapEnabled = e.target.checked;
+            if (wrapEnabled) {
+                this.logOutput.classList.add('wrap-text');
+            } else {
+                this.logOutput.classList.remove('wrap-text');
+            }
+            localStorage.setItem('starlogger-wrap-text', wrapEnabled);
         });
         
         // Clear buttons
@@ -335,6 +350,27 @@ class StarLogsApp {
         const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
         this.setTheme(newTheme);
         this.themeSelect.value = newTheme;
+    }
+    
+    loadLogPreferences() {
+        // Load auto-scroll preference (default: true)
+        const savedAutoScroll = localStorage.getItem('starlogger-auto-scroll');
+        if (savedAutoScroll !== null) {
+            this.autoScroll = savedAutoScroll === 'true';
+            this.autoScrollCheckbox.checked = this.autoScroll;
+        }
+        
+        // Load wrap-text preference (default: false - no wrap)
+        const savedWrapText = localStorage.getItem('starlogger-wrap-text');
+        if (savedWrapText !== null) {
+            const wrapEnabled = savedWrapText === 'true';
+            this.wrapTextCheckbox.checked = wrapEnabled;
+            if (wrapEnabled) {
+                this.logOutput.classList.add('wrap-text');
+            } else {
+                this.logOutput.classList.remove('wrap-text');
+            }
+        }
     }
     
     // Version Management
@@ -550,27 +586,40 @@ class StarLogsApp {
     initializeResizer() {
         if (!this.divider) return;
         
+        // Setup resizable divider (flexbox-based)
         let isDragging = false;
         let startY = 0;
-        let startEventsHeight = 0;
-        let startLogsHeight = 0;
+        let startEventsFlex = 1;
+        let startLogsFlex = 1;
+        let containerHeight = 0;
         
-        // Load saved sizes from localStorage
-        const savedEventsHeight = localStorage.getItem('starlogger-events-height');
-        const savedLogsHeight = localStorage.getItem('starlogger-logs-height');
+        const eventsSection = document.querySelector('.summary-section');
+        const logsSection = document.querySelector('.log-section');
         
-        if (savedEventsHeight) {
-            this.eventsList.style.height = savedEventsHeight;
-        }
-        if (savedLogsHeight) {
-            this.logOutput.style.height = savedLogsHeight;
+        // Load saved flex values
+        const savedEventsFlex = localStorage.getItem('starlogger-events-flex');
+        const savedLogsFlex = localStorage.getItem('starlogger-logs-flex');
+        
+        if (savedEventsFlex && savedLogsFlex) {
+            eventsSection.style.flex = `${savedEventsFlex} 1 0`;
+            logsSection.style.flex = `${savedLogsFlex} 1 0`;
         }
         
         this.divider.addEventListener('mousedown', (e) => {
             isDragging = true;
             startY = e.clientY;
-            startEventsHeight = this.eventsList.offsetHeight;
-            startLogsHeight = this.logOutput.offsetHeight;
+            
+            // Get current flex values
+            const eventsStyle = window.getComputedStyle(eventsSection);
+            const logsStyle = window.getComputedStyle(logsSection);
+            startEventsFlex = parseFloat(eventsStyle.flexGrow) || 1;
+            startLogsFlex = parseFloat(logsStyle.flexGrow) || 1;
+            
+            // Calculate total available height
+            const container = document.querySelector('.container');
+            const header = document.querySelector('header');
+            const dividerHeight = this.divider.offsetHeight;
+            containerHeight = container.clientHeight - header.offsetHeight - dividerHeight - 30; // 30 for padding
             
             this.divider.classList.add('dragging');
             document.body.style.cursor = 'ns-resize';
@@ -583,11 +632,24 @@ class StarLogsApp {
             if (!isDragging) return;
             
             const deltaY = e.clientY - startY;
-            const newEventsHeight = Math.max(150, startEventsHeight + deltaY);
-            const newLogsHeight = Math.max(150, startLogsHeight - deltaY);
+            const deltaRatio = deltaY / containerHeight;
             
-            this.eventsList.style.height = `${newEventsHeight}px`;
-            this.logOutput.style.height = `${newLogsHeight}px`;
+            // Adjust flex values based on mouse movement
+            let newEventsFlex = Math.max(0.2, startEventsFlex + deltaRatio);
+            let newLogsFlex = Math.max(0.2, startLogsFlex - deltaRatio);
+            
+            // Ensure minimum sizes
+            if (newEventsFlex < 0.2) {
+                newEventsFlex = 0.2;
+                newLogsFlex = startEventsFlex + startLogsFlex - 0.2;
+            }
+            if (newLogsFlex < 0.2) {
+                newLogsFlex = 0.2;
+                newEventsFlex = startEventsFlex + startLogsFlex - 0.2;
+            }
+            
+            eventsSection.style.flex = `${newEventsFlex} 1 0`;
+            logsSection.style.flex = `${newLogsFlex} 1 0`;
             
             e.preventDefault();
         });
@@ -599,9 +661,11 @@ class StarLogsApp {
                 document.body.style.cursor = '';
                 document.body.style.userSelect = '';
                 
-                // Save sizes to localStorage
-                localStorage.setItem('starlogger-events-height', this.eventsList.style.height);
-                localStorage.setItem('starlogger-logs-height', this.logOutput.style.height);
+                // Save flex values to localStorage
+                const eventsStyle = window.getComputedStyle(eventsSection);
+                const logsStyle = window.getComputedStyle(logsSection);
+                localStorage.setItem('starlogger-events-flex', eventsStyle.flexGrow);
+                localStorage.setItem('starlogger-logs-flex', logsStyle.flexGrow);
             }
         });
     }
@@ -649,13 +713,27 @@ class StarLogsApp {
     }
     
     handleMessage(data) {
+        // Debug: Track message types received
+        if (!this.messageStats) {
+            this.messageStats = { log_line: 0, event: 0, separator: 0, clear_all: 0, other: 0 };
+        }
+        
         if (data.type === 'log_line') {
+            this.messageStats.log_line++;
             this.addLogLine(data.line, data.has_event);
         } else if (data.type === 'event') {
+            this.messageStats.event++;
+            // Debug: Log first few events
+            if (this.messageStats.event <= 5) {
+                console.log('[DEBUG] Received event:', data.event.type, data.event);
+            }
             this.addEvent(data.event);
         } else if (data.type === 'separator') {
+            this.messageStats.separator++;
+            console.log('[DEBUG] Separator received. Stats:', this.messageStats);
             this.addSeparator(data.message);
         } else if (data.type === 'clear_all') {
+            this.messageStats.clear_all++;
             // Clear UI for reprocessing
             this.eventsList.innerHTML = '<div class="empty-state">Reprocessing...</div>';
             this.logOutput.innerHTML = '';
@@ -669,6 +747,9 @@ class StarLogsApp {
             this.disconnectCount.textContent = '0 DC';
             if (this.vehicleSoftCount) this.vehicleSoftCount.textContent = '0 Soft';
             if (this.vehicleFullCount) this.vehicleFullCount.textContent = '0 Full';
+        } else {
+            this.messageStats.other++;
+            console.warn('[DEBUG] Unknown message type:', data.type, data);
         }
     }
     
@@ -685,10 +766,17 @@ class StarLogsApp {
     }
     
     addEvent(event) {
+        // Debug: Log if event is missing critical data
+        if (!event || !event.type) {
+            console.error('[DEBUG] Invalid event received:', event);
+            return;
+        }
+        
         // Remove empty state if present
         const emptyState = this.eventsList.querySelector('.empty-state');
         if (emptyState) {
             emptyState.remove();
+            console.log('[DEBUG] Removed empty state, first event received');
         }
         
         // Increment counters
@@ -953,6 +1041,11 @@ class StarLogsApp {
         
         // Limit events list size
         this.trimEventsList();
+        
+        // Auto-scroll to top to show newest event (if enabled)
+        if (this.autoScroll) {
+            this.eventsList.scrollTop = 0;
+        }
     }
     
     formatWeaponName(weapon) {

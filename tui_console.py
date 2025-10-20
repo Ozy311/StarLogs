@@ -82,6 +82,9 @@ class TUIConsole:
         self.view_mode = 'split'
         self.previous_view_mode = 'split'  # Track previous mode for modal return
         
+        # Word wrap setting
+        self.word_wrap = False  # Default to no wrapping (truncate long lines)
+        
         # Options modal state
         self.options_selected_index = 0  # Which option is selected
         self.options_editing = False  # Whether we're editing a value
@@ -202,11 +205,15 @@ class TUIConsole:
         with self.lock:
             text = Text("\n".join(list(self.game_logs)))
         
+        # Add word wrap indicator to subtitle
+        wrap_indicator = " [dim cyan]↩ wrap[/dim cyan]" if self.word_wrap else " [dim cyan]→ nowrap[/dim cyan]"
+        
         return Panel(
             text,
             title="[bold cyan]Game Logs[/bold cyan]",
             border_style="cyan",
-            subtitle=f"[dim]{len(self.game_logs)}/{self.max_lines} lines[/dim]"
+            subtitle=f"[dim]{len(self.game_logs)}/{self.max_lines} lines{wrap_indicator}[/dim]",
+            overflow="fold" if self.word_wrap else "crop"
         )
     
     def generate_web_panel(self) -> Panel:
@@ -214,11 +221,15 @@ class TUIConsole:
         with self.lock:
             text = Text("\n".join(list(self.web_logs)))
         
+        # Add word wrap indicator to subtitle
+        wrap_indicator = " [dim yellow]↩ wrap[/dim yellow]" if self.word_wrap else " [dim yellow]→ nowrap[/dim yellow]"
+        
         return Panel(
             text,
             title="[bold yellow]Web Server Logs[/bold yellow]",
             border_style="yellow",
-            subtitle=f"[dim]{len(self.web_logs)}/{self.max_lines} lines[/dim]"
+            subtitle=f"[dim]{len(self.web_logs)}/{self.max_lines} lines{wrap_indicator}[/dim]",
+            overflow="fold" if self.word_wrap else "crop"
         )
     
     def generate_footer(self) -> Panel:
@@ -231,8 +242,10 @@ class TUIConsole:
         else:
             # Normal footer
             port = self.config_manager.get('web_port', 8080) if self.config_manager else 8080
+            wrap_status = "[green]ON[/green]" if self.word_wrap else "[dim]OFF[/dim]"
             text = Text.from_markup(
                 "[bold green]Ready:[/bold green] [cyan]1[/cyan]=Split [cyan]2[/cyan]=Game [cyan]3[/cyan]=Web  "
+                "[cyan]W[/cyan]=Wrap " + wrap_status + "  "
                 "[cyan]O[/cyan]=Options [cyan]A[/cyan]=About [cyan]V[/cyan]=Change Env [cyan]C[/cyan]=Clear [cyan]Q[/cyan]=Quit   "
                 f"[dim]|[/dim] [yellow]Web: http://localhost:{port}[/yellow]"
             )
@@ -609,6 +622,12 @@ class TUIConsole:
                         break
                     else:
                         _log("ERROR: on_version_change callback is None!")
+                elif key in (b'w', b'W'):
+                    _log(f"W key detected - toggling word wrap (current: {self.word_wrap})")
+                    # Toggle word wrap for both panels
+                    with self.lock:
+                        self.word_wrap = not self.word_wrap
+                    _log(f"Word wrap now: {self.word_wrap}")
                 elif key in (b'c', b'C'):
                     self.clear_logs()
                 elif key in (b'q', b'Q'):
