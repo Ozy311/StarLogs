@@ -327,13 +327,43 @@ header h1 .tagline {
 }
 
 .summary-section {
-    flex: 1 1 50%; /* Default: 50% of available space, can grow/shrink */
+    flex: 1 1 0; /* Equal share by default, allow growth */
     margin-bottom: 0; /* Remove margin, divider provides spacing */
+    transition: all 0.3s ease;
+    min-height: 0;
+}
+
+.summary-section.collapsed {
+    flex: 0 0 auto !important; /* Collapse to minimal size */
+    flex-grow: 0 !important;
+    flex-shrink: 0 !important;
+    min-height: auto;
+    max-height: none;
+}
+
+/* When log section is collapsed, event summary takes all space */
+.summary-section:not(.collapsed) {
+    flex-grow: 1;
 }
 
 .log-section {
-    flex: 1 1 50%; /* Default: 50% of available space, can grow/shrink */
+    flex: 1 1 0; /* Equal share by default, allow growth */
     margin-bottom: 0;
+    transition: all 0.3s ease;
+    min-height: 0;
+}
+
+.log-section.collapsed {
+    flex: 0 0 auto !important; /* Collapse to minimal size */
+    flex-grow: 0 !important;
+    flex-shrink: 0 !important;
+    min-height: auto;
+    max-height: none;
+}
+
+/* When summary section is collapsed, log section takes all space */
+.log-section:not(.collapsed) {
+    flex-grow: 1;
 }
 
 .section-header {
@@ -375,15 +405,19 @@ header h1 .tagline {
     padding: 20px;
     flex: 1 1 auto; /* Fill remaining space in section */
     overflow: hidden;
-    transition: padding 0.3s ease;
+    transition: all 0.3s ease;
     display: flex;
     flex-direction: column;
     min-height: 0; /* Important for flexbox overflow */
 }
 
 .section-content.collapsed {
-    flex: 0 0 0; /* Collapse to 0 */
-    padding: 0 20px;
+    flex: 0 0 0 !important; /* Collapse to 0 */
+    padding: 0 !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    max-height: 0 !important;
+    overflow: hidden !important;
 }
 
 /* Summary Counts */
@@ -402,6 +436,11 @@ header h1 .tagline {
     border-top: 1px solid var(--border-color);
     padding: 12px 20px;
     flex-shrink: 0;
+    transition: all 0.3s ease;
+}
+
+.badges-section.collapsed {
+    display: none;
 }
 
 .badges-header {
