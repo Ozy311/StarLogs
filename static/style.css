@@ -1437,5 +1437,147 @@ header h1 .tagline {
     .event-time {
         min-width: auto;
     }
+    
+    /* Hide desktop buttons on mobile */
+    .version-dropdown-compact {
+        display: none !important;
+    }
+    
+    #history-btn,
+    #export-current-btn,
+    #settings-btn {
+        display: none !important;
+    }
+    
+    /* Hide desktop header icon stack on mobile */
+    .header-icon-stack {
+        display: none !important;
+    }
+    
+    /* Show mobile hamburger menu on mobile */
+    .mobile-menu-toggle {
+        display: block !important;
+    }
+}
+
+/* Mobile Menu Styles */
+.mobile-menu-toggle {
+    display: none;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1.2rem;
+    transition: all 0.2s;
+}
+
+.mobile-menu-toggle:hover {
+    background: var(--bg-secondary);
+    border-color: #54ADF7;
+    box-shadow: 0 0 12px rgba(84, 173, 247, 0.4);
+}
+
+.mobile-menu-flyout {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    min-width: 180px;
+    z-index: 1000;
+    margin-top: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.mobile-menu-flyout.show {
+    display: flex;
+    flex-direction: column;
+}
+
+.mobile-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 12px 15px;
+    border: none;
+    background: transparent;
+    color: var(--text-primary);
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.95rem;
+    border-bottom: 1px solid var(--bg-secondary);
+}
+
+.mobile-menu-item:last-child {
+    border-bottom: none;
+}
+
+.mobile-menu-item:hover {
+    background: var(--bg-secondary);
+}
+
+.mobile-menu-item i {
+    font-size: 1rem;
+    color: var(--accent-blue);
+}
+
+/* Header Icon Stack - Vertical Icons */
+.header-icon-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-left: 10px;
+}
+
+.header-icon-btn {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    min-height: 32px;
+}
+
+.header-icon-btn:hover {
+    background: var(--bg-secondary);
+    border-color: #54ADF7;
+    box-shadow: 0 0 12px rgba(84, 173, 247, 0.4);
+    transform: scale(1.05);
+}
+
+.header-icon-btn:active {
+    transform: scale(0.95);
+}
+
+/* WiFi Button - Green when connected */
+.header-icon-btn.wifi-btn {
+    color: var(--accent-green);
+}
+
+.header-icon-btn.wifi-btn.disconnected {
+    color: var(--accent-red);
+}
+
+/* Theme Toggle Button - Yellow sun/moon */
+.header-icon-btn.theme-btn {
+    color: var(--accent-yellow);
+}
+
+/* About Button - Blue */
+.header-icon-btn.about-btn {
+    color: var(--accent-blue);
 }
 
