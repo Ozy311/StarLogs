@@ -621,9 +621,9 @@ dist\pyinstaller\StarLogs.exe  # Single executable (~80MB, self-extracting)
 
 ## Known Issues
 
-### Version 0.9.0 Focus Areas
+### Version 0.9.1 Focus Areas
 
-The following items are known and under active investigation for the next release (v0.9.1):
+The following items are known and under active investigation for the next release (v0.9.2):
 
 1. **NPC Classification (NEW in 4.3.2+)** - Some newly added NPCs in Star Citizen 4.3.2 and later are not yet recognized by the pattern database, potentially causing them to be flagged as PvP kills instead of PvE.
    - **Workaround:** Check event details for killer/victim names; report unrecognized NPCs on GitHub
@@ -662,6 +662,22 @@ The following items are known and under active investigation for the next releas
 ---
 
 ## Changelog
+
+### Version 0.9.1 (2025-01-XX) - Parser Fixes & UI Polish
+
+**Highlights:**
+- 🐛 Fixed corpse event buffering - events now flush at log processing completion
+- 🐛 Fixed variable scope error in suicide event parsing
+- 🐛 Comprehensive event classification improvements
+- 🎨 Header controls reorganization - Clear and Reprocess buttons moved to header
+- 🎨 Improved section collapse behavior - widgets now fully hide when collapsed
+- 🎨 Badge filter UI with persistence and invert button
+- 🎨 Connection state indicator improvements
+- 🎨 Theme toggle with persistent preference
+- 🎨 Mobile menu enhancements
+- 🐛 Fixed word wrap setting respect in log panels
+- 🔧 UTF-8-safe JSON handling for config
+- 🔧 Badge visibility API endpoints
 
 ### Version 0.9.0 (2025-10-19) - Vehicle Destruction System & UI Redesign
 
