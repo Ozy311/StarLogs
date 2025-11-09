@@ -265,6 +265,13 @@ class EventParser:
                 events.append(event)
         return events
 
+    def reset_corpse_buffer(self) -> None:
+        """
+        Clear the corpse event buffer.
+        Should be called when starting to parse a new log file.
+        """
+        self.corpse_buffer.clear()
+
     def _extract_ship_from_zone(self, zone: str) -> Optional[str]:
         """
         Extract ship/location name from zone string.
