@@ -170,7 +170,20 @@ class OfflineAnalyzer:
         except Exception as e:
             print(f"[ERROR] Failed to parse log file: {e}")
             raise
-        
+
+        # Flush any buffered corpse events (incomplete sets with <3 messages)
+        try:
+            flushed_events = self.event_parser.flush_corpse_buffers()
+            for flushed_event in flushed_events:
+                self.events.append(flushed_event.to_dict())
+                # Update stats for flushed events
+                if flushed_event.type.value == 'corpse':
+                    self.stats['corpses'] += 1
+            if flushed_events:
+                print(f"[DEBUG] Flushed {len(flushed_events)} buffered corpse events")
+        except Exception as e:
+            print(f"[ERROR] Failed to flush corpse buffers: {e}")
+
         # Extract system info from header
         self.system_info = self.event_parser.extract_system_info(header_lines)
         

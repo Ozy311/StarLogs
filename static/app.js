@@ -1128,7 +1128,15 @@ class StarLogsApp {
             const player = event.details?.player || 'Unknown';
             const status = event.details?.status || '';
             summary = `<strong>${player}</strong> became a corpse`;
-            details = status;
+
+            // Show consolidated details if multiple status messages
+            const statusMessages = event.details?.status_messages || [status];
+            if (statusMessages.length > 1) {
+                details = statusMessages.join(' • ');
+            } else {
+                details = status;
+            }
+
             this.counters.corpse++;
             if (this.corpseCount) {
                 this.corpseCount.textContent = `${this.counters.corpse} Corpses`;

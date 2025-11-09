@@ -98,12 +98,14 @@ class EventParser:
         'Pirate-',
         '-Pilot_Light_',
         '-Pilot_Medium_',
-        '-Pilot_Heavy_'
+        '-Pilot_Heavy_',
+        'NPC_Archetypes',  # Catches all archetype NPCs (e.g., NPC_Archetypes-Male-Human-FrontierFighters_...)
+        'Kopion_'  # Catches combat pets (e.g., Kopion_CombatPet_FrontierFighters_...)
     ]
     
     def __init__(self):
         """Initialize the event parser."""
-        pass
+        self.corpse_buffer = {}  # Store partial corpse events by player name
     
     def extract_timestamp(self, line: str) -> Optional[datetime]:
         """Extract timestamp from log line."""
@@ -126,22 +128,32 @@ class EventParser:
             LogEvent if line contains a recognized event, None otherwise
         """
         timestamp = self.extract_timestamp(line)
-        
-        # Check for corpse events
+
+        # Check for corpse events (buffer and consolidate)
         corpse_match = self.CORPSE_PATTERN.search(line)
         if corpse_match:
             player = corpse_match.group(1)
             status = corpse_match.group(2).strip()
-            return LogEvent(
-                event_type=EventType.CORPSE,
-                timestamp=timestamp,
-                raw_line=line.strip(),
-                details={
-                    'type': 'corpse',
-                    'player': player,
-                    'status': status
+
+            # Get or create buffer for this player
+            if player not in self.corpse_buffer:
+                self.corpse_buffer[player] = {
+                    'timestamp': timestamp,
+                    'status_messages': [],
+                    'raw_lines': []
                 }
-            )
+
+            # Add status message and raw line to buffer
+            self.corpse_buffer[player]['status_messages'].append(status)
+            self.corpse_buffer[player]['raw_lines'].append(line.strip())
+            self.corpse_buffer[player]['timestamp'] = timestamp  # Update to latest timestamp
+
+            # If we have collected 3 messages, emit consolidated event
+            if len(self.corpse_buffer[player]['status_messages']) >= 3:
+                return self._emit_corpse_event(player)
+
+            # Otherwise, return None and wait for more corpse events
+            return None
         
         # Check for Actor Stall (primary disconnect indicator)
         actor_stall_match = self.ACTOR_STALL_PATTERN.search(line)
@@ -182,9 +194,84 @@ class EventParser:
         return None
     
     def _is_npc(self, entity_name: str) -> bool:
-        """Check if entity name belongs to an NPC."""
-        return any(indicator in entity_name for indicator in self.NPC_INDICATORS)
-    
+        """
+        Check if entity name belongs to an NPC.
+
+        Uses both explicit indicators and fallback heuristics to detect NPCs.
+        Player names are typically 3-20 chars, alphanumeric + underscores.
+        NPC names are often much longer with hyphens and complex patterns.
+        """
+        # Check explicit indicators first
+        if any(indicator in entity_name for indicator in self.NPC_INDICATORS):
+            return True
+
+        # Fallback heuristics for unrecognized NPCs
+        # Very long names are almost always NPCs
+        if len(entity_name) > 40:
+            return True
+
+        # Check for hyphen-heavy patterns (e.g., "NPC_Archetypes-Male-Human-FrontierFighters_...")
+        if entity_name.count('-') >= 3:
+            return True
+
+        return False
+
+    def _emit_corpse_event(self, player: str) -> Optional[LogEvent]:
+        """
+        Emit a consolidated corpse event from buffered messages.
+
+        Args:
+            player: Player name to emit event for
+
+        Returns:
+            Consolidated LogEvent or None if buffer is empty
+        """
+        if player not in self.corpse_buffer:
+            return None
+
+        buffer = self.corpse_buffer[player]
+
+        # Create consolidated event
+        event = LogEvent(
+            event_type=EventType.CORPSE,
+            timestamp=buffer['timestamp'],
+            raw_line='\n'.join(buffer['raw_lines']),
+            details={
+                'type': 'corpse',
+                'player': player,
+                'status': buffer['status_messages'][0] if buffer['status_messages'] else 'Unknown',
+                'status_messages': buffer['status_messages'],  # All status messages
+                'message_count': len(buffer['status_messages'])
+            }
+        )
+
+        # Clear buffer for this player
+        del self.corpse_buffer[player]
+
+        return event
+
+    def flush_corpse_buffers(self) -> List[LogEvent]:
+        """
+        Flush any remaining buffered corpse events.
+        Should be called at the end of log parsing.
+
+        Returns:
+            List of any remaining buffered corpse events
+        """
+        events = []
+        for player in list(self.corpse_buffer.keys()):
+            event = self._emit_corpse_event(player)
+            if event:
+                events.append(event)
+        return events
+
+    def reset_corpse_buffer(self) -> None:
+        """
+        Clear the corpse event buffer.
+        Should be called when starting to parse a new log file.
+        """
+        self.corpse_buffer.clear()
+
     def _extract_ship_from_zone(self, zone: str) -> Optional[str]:
         """
         Extract ship/location name from zone string.
@@ -260,17 +347,18 @@ class EventParser:
         # Extract ship/location info from zone
         # Zones often contain ship names like "ORIG_890Jump_6166775878721"
         ship_info = self._extract_ship_from_zone(zone)
-        
+
+        # Determine kill type - define these before suicide check so they're always available
+        is_npc_victim = self._is_npc(victim_name)
+        is_npc_killer = self._is_npc(killer_name)
+        is_fps_kill = damage_type.lower() == 'bullet'  # FPS combat uses 'Bullet' damage type
+        is_vehicle_destruction = damage_type.lower() == 'vehicledestruction'  # Player died in vehicle
+
         # Check for suicide first (killer == victim)
         if killer_name == victim_name and killer_id == victim_id:
             event_type = EventType.SUICIDE
         else:
-            # Determine kill type
-            is_npc_victim = self._is_npc(victim_name)
-            is_npc_killer = self._is_npc(killer_name)
-            is_fps_kill = damage_type.lower() == 'bullet'  # FPS combat uses 'Bullet' damage type
-            
-            # Classify the event (FPS vs Vehicle combat)
+            # Classify the event (FPS vs Vehicle combat vs VehicleDestruction)
             if is_fps_kill:
                 # FPS combat (on foot)
                 if is_npc_killer and not is_npc_victim:
@@ -281,6 +369,12 @@ class EventParser:
                     event_type = EventType.FPS_PVP_KILL  # Player killed player on foot
                 else:
                     event_type = EventType.KILL  # NPC killed NPC (generic)
+            elif is_vehicle_destruction:
+                # VehicleDestruction damage type - player died in their vehicle
+                if not is_npc_victim:
+                    event_type = EventType.DEATH  # Player died in vehicle
+                else:
+                    event_type = EventType.PVE_KILL  # NPC died in vehicle, player credit
             else:
                 # Vehicle combat
                 if is_npc_killer and not is_npc_victim:

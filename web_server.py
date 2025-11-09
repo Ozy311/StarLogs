@@ -529,6 +529,36 @@ class WebServer:
         """
         # Check for special separator message
         if line == "__REPLAY_COMPLETE__":
+            # Flush any buffered corpse events before marking replay complete
+            try:
+                flushed_events = self.event_parser.flush_corpse_buffers()
+                for flushed_event in flushed_events:
+                    # Process each flushed event just like a normal event
+                    # Update corpse stats
+                    with self.stats_lock:
+                        if flushed_event.type.value == 'corpse':
+                            self.stats['corpses'] += 1
+
+                    # Create event message
+                    event_message = {
+                        'type': 'event',
+                        'event': flushed_event.to_dict()
+                    }
+
+                    # Add to history
+                    with self.event_history_lock:
+                        self.event_history.append(event_message)
+                        if len(self.event_history) > self.max_history:
+                            self.event_history.pop(0)
+
+                    # Broadcast to clients
+                    self.broadcast_message(event_message)
+
+                if flushed_events:
+                    print(f"[DEBUG] Flushed {len(flushed_events)} buffered corpse events at replay complete")
+            except Exception as e:
+                print(f"[ERROR] Failed to flush corpse buffers: {e}")
+
             separator_message = {
                 'type': 'separator',
                 'message': '═══ END OF REPLAY - LIVE LOGGING STARTS HERE ═══'
