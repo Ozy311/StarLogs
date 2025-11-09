@@ -340,17 +340,17 @@ class EventParser:
         # Extract ship/location info from zone
         # Zones often contain ship names like "ORIG_890Jump_6166775878721"
         ship_info = self._extract_ship_from_zone(zone)
-        
+
+        # Determine kill type - define these before suicide check so they're always available
+        is_npc_victim = self._is_npc(victim_name)
+        is_npc_killer = self._is_npc(killer_name)
+        is_fps_kill = damage_type.lower() == 'bullet'  # FPS combat uses 'Bullet' damage type
+        is_vehicle_destruction = damage_type.lower() == 'vehicledestruction'  # Player died in vehicle
+
         # Check for suicide first (killer == victim)
         if killer_name == victim_name and killer_id == victim_id:
             event_type = EventType.SUICIDE
         else:
-            # Determine kill type
-            is_npc_victim = self._is_npc(victim_name)
-            is_npc_killer = self._is_npc(killer_name)
-            is_fps_kill = damage_type.lower() == 'bullet'  # FPS combat uses 'Bullet' damage type
-            is_vehicle_destruction = damage_type.lower() == 'vehicledestruction'  # Player died in vehicle
-
             # Classify the event (FPS vs Vehicle combat vs VehicleDestruction)
             if is_fps_kill:
                 # FPS combat (on foot)
