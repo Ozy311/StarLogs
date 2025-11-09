@@ -182,6 +182,39 @@ def test_corpse_consolidation():
     return True
 
 
+def test_suicide_event():
+    """Test suicide event to ensure variables are defined correctly"""
+    print("\n=== Testing Suicide Event (Variable Scope Fix) ===")
+    parser = EventParser()
+
+    # Test suicide event - this previously failed due to undefined variables
+    test_line = "<2025-10-25T12:00:00.000Z> <Actor Death> CActor::Kill: 'PlayerName' [123456] in zone 'Crusader_789' killed by 'PlayerName' [123456] using 'Unknown' [Class unknown] with damage type 'Collision' from direction x: 0.0, y: 0.0, z: 0.0"
+
+    event = parser.parse_line(test_line)
+    if event:
+        print(f"✓ Event Type: {event.type.value}")
+        print(f"  Victim: {event.details['victim']}")
+        print(f"  Killer: {event.details['killer']}")
+
+        if event.type == EventType.SUICIDE:
+            print("✓ PASS: Suicide correctly classified")
+        else:
+            print(f"✗ FAIL: Expected SUICIDE, got {event.type.value}")
+            return False
+
+        # Verify that is_pvp, is_pve, is_death, is_fps are present (they use the previously undefined variables)
+        if 'is_pvp' in event.details and 'is_pve' in event.details and 'is_death' in event.details and 'is_fps' in event.details:
+            print("✓ PASS: All detail flags present (is_pvp, is_pve, is_death, is_fps)")
+        else:
+            print("✗ FAIL: Missing detail flags")
+            return False
+    else:
+        print("✗ FAIL: No event parsed")
+        return False
+
+    return True
+
+
 def main():
     """Run all tests"""
     print("=" * 60)
@@ -192,6 +225,7 @@ def main():
         'VehicleDestruction Classification': test_vehicle_destruction(),
         'NPC Detection': test_npc_detection(),
         'Corpse Consolidation': test_corpse_consolidation(),
+        'Suicide Event (Variable Scope)': test_suicide_event(),
     }
 
     print("\n" + "=" * 60)
