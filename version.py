@@ -2,7 +2,7 @@
 StarLogs Version Information
 """
 
-__version__ = "0.9.0"
+__version__ = "0.9.1"
 __author__ = "Ozy311"
 __organization__ = "CUBE Org"
 __tagline__ = "FOR THE CUBE!"

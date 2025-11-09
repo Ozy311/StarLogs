@@ -39,8 +39,8 @@ echo.
     --output-dir=build\build_nuitka ^
     --company-name=Ozy311 ^
     --product-name=StarLogs ^
-    --file-version=0.8.3 ^
-    --product-version=0.8.3 ^
+    --file-version=0.9.1 ^
+    --product-version=0.9.1 ^
     --file-description="Star Citizen Log Monitor and Analyzer" ^
     starlogs.py
 
