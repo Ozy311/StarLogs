@@ -496,6 +496,7 @@ class StarLogs:
         """
         return {
             'web_port': self.config_manager.get('web_port', 8080),
+            'listen_all': self.config_manager.get('listen_all', False),
             'auto_detect': self.config_manager.get('auto_detect', True),
             'debug_mode': self.config_manager.get('debug_mode', False),
             'badge_visibility': self.config_manager.get('badge_visibility', {
@@ -524,13 +525,24 @@ class StarLogs:
             Dict with 'status' and optional 'message'
         """
         try:
-            # Only allow updating certain fields
-            allowed_fields = ['web_port', 'auto_detect', 'debug_mode', 'badge_visibility']
-            
+            # Only allow updating certain fields, with type validation
+            if not isinstance(updates, dict):
+                return {'status': 'error', 'message': 'Invalid payload'}
+            validators = {
+                'web_port': lambda v: isinstance(v, int) and not isinstance(v, bool) and 1024 <= v <= 65535,
+                'auto_detect': lambda v: isinstance(v, bool),
+                'debug_mode': lambda v: isinstance(v, bool),
+                'listen_all': lambda v: isinstance(v, bool),
+                'badge_visibility': lambda v: isinstance(v, dict) and all(
+                    isinstance(k, str) and isinstance(x, bool) for k, x in v.items()),
+            }
             for key, value in updates.items():
-                if key in allowed_fields:
+                if key in validators and not validators[key](value):
+                    return {'status': 'error', 'message': f'Invalid value for {key}'}
+            for key, value in updates.items():
+                if key in validators:
                     self.config_manager.set(key, value)
-            
+
             return {'status': 'success', 'message': 'Configuration updated'}
         except Exception as e:
             return {'status': 'error', 'message': str(e)}
@@ -727,7 +739,14 @@ class StarLogs:
         if not self.use_tui:
             print("Starting web server...")
         
-        self.web_server = WebServer(port=port)
+        listen_all = bool(self.config_manager.get('listen_all', False))
+        self.web_server = WebServer(port=port, listen_all=listen_all)
+        if listen_all:
+            print("\n" + "!" * 70)
+            print("WARNING: LAN access is ENABLED (listening on 0.0.0.0).")
+            print("This allows anyone on your network to access the application")
+            print("without authentication.")
+            print("!" * 70 + "\n")
         self.web_server.set_log_path(log_path)
         
         # Set up callbacks
@@ -747,7 +766,7 @@ class StarLogs:
         self.web_server.get_diagnostics_callback = lambda: self.log_monitor.get_diagnostics() if self.log_monitor else {}
         
         # Check if port is available before starting server
-        if not self.web_server.check_port_available(port):
+        if not self.web_server.check_port_available(port, self.web_server.host):
             print(f"\n{'='*70}")
             print(f"❌ ERROR: Port {port} is already in use!")
             print(f"{'='*70}")

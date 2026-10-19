@@ -4,7 +4,9 @@ Flask web server for StarLogs.
 Serves dashboard and provides real-time log streaming via SSE.
 """
 
-from flask import Flask, render_template, Response, jsonify, request
+from flask import Flask, render_template, Response, jsonify, request, abort
+from pathlib import Path
+from urllib.parse import urlparse
 import json
 import queue
 import re
@@ -38,9 +40,11 @@ class WebServer:
         except OSError:
             return False
     
-    def __init__(self, port: int = 8080):
+    def __init__(self, port: int = 8080, listen_all: bool = False):
         """Initialize the web server."""
         self.port = port
+        self.listen_all = listen_all
+        self.host = '0.0.0.0' if listen_all else '127.0.0.1'
         self.app = Flask(__name__)
         self.app.json.ensure_ascii = False  # Allow non-ASCII characters in JSON
         self.event_parser = EventParser()
@@ -102,7 +106,31 @@ class WebServer:
         self.get_diagnostics_callback = None
         
         # Setup routes
+        self._setup_security()
         self._setup_routes()
+
+    def _setup_security(self):
+        """Block cross-site requests (CSRF / DNS rebinding) against the local API."""
+        @self.app.before_request
+        def guard():
+            if self.listen_all:
+                return  # LAN mode is explicitly opt-in and unauthenticated
+            host = (request.host or '').rsplit(':', 1)[0].strip('[]').lower()
+            if host not in ('localhost', '127.0.0.1', '::1'):
+                abort(403)  # DNS rebinding
+            if request.method in ('POST', 'PUT', 'DELETE', 'PATCH'):
+                origin = request.headers.get('Origin')
+                if origin and urlparse(origin).hostname not in ('localhost', '127.0.0.1', '::1'):
+                    abort(403)  # cross-site request
+
+    def _resolve_log_file(self, value) -> Path:
+        """Accept only existing .log files; reject anything else."""
+        if not isinstance(value, str) or not value:
+            raise ValueError('No log file specified')
+        path = Path(value).resolve()
+        if path.suffix.lower() != '.log' or not path.is_file():
+            raise ValueError('Not a valid .log file')
+        return path
     
     def _setup_routes(self):
         """Setup Flask routes."""
@@ -425,11 +453,11 @@ class WebServer:
         def analyze_log():
             """Analyze a historical log file."""
             try:
-                data = request.get_json()
-                log_file = data.get('log_file')
-                
-                if not log_file:
-                    return jsonify({'status': 'error', 'message': 'No log file specified'}), 400
+                data = request.get_json(silent=True) or {}
+                try:
+                    log_file = str(self._resolve_log_file(data.get('log_file')))
+                except ValueError as e:
+                    return jsonify({'status': 'error', 'message': str(e)}), 400
                 
                 # Import offline analyzer
                 from offline_analyzer import OfflineAnalyzer
@@ -459,12 +487,14 @@ class WebServer:
         def export_log():
             """Export a log file to HTML."""
             try:
-                data = request.get_json()
-                log_file = data.get('log_file')
+                data = request.get_json(silent=True) or {}
+                try:
+                    log_file = str(self._resolve_log_file(data.get('log_file')))
+                except ValueError as e:
+                    return jsonify({'status': 'error', 'message': str(e)}), 400
                 format_type = data.get('format', 'full')
-                
-                if not log_file:
-                    return jsonify({'status': 'error', 'message': 'No log file specified'}), 400
+                if format_type not in ('full', 'simple'):
+                    format_type = 'full'
                 
                 # Import offline analyzer and HTML generator
                 from offline_analyzer import OfflineAnalyzer
@@ -494,7 +524,7 @@ class WebServer:
                     html_content,
                     mimetype='text/html',
                     headers={
-                        'Content-Disposition': f'attachment; filename=starlogs_{filename}.html'
+                        'Content-Disposition': 'attachment; filename="starlogs_' + re.sub(r'[^\w.-]', '_', filename) + '.html"'
                     }
                 )
                 
@@ -803,7 +833,7 @@ class WebServer:
         import socket
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            sock.bind(('127.0.0.1', self.port))
+            sock.bind((self.host, self.port))
             sock.close()
         except OSError as e:
             print(f"\n{'='*70}")
@@ -820,7 +850,7 @@ class WebServer:
             raise SystemExit(1) from e
         
         self.app.run(
-            host='127.0.0.1',
+            host=self.host,
             port=self.port,
             debug=False,
             threaded=threaded,

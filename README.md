@@ -53,6 +53,7 @@ StarLogs is a comprehensive Star Citizen log parser that monitors your game logs
 - **Multi-drive detection** - Automatically finds Star Citizen installations across all drives
 - **Custom paths** - Add non-standard installation locations
 - **Port configuration** - Change web server port (default: 3111)
+- **Optional network access** - Listen on `0.0.0.0` to open the dashboard to your LAN (off by default, see [Network access](#network-access--security))
 - **Version switching** - Monitor different game environments on the fly
 - **Debug mode** - Comprehensive logging for troubleshooting
 
@@ -324,6 +325,7 @@ The TUI console shows:
 - `installations` - Detected game installations
 - `active_version` - Currently monitored version
 - `web_port` - Web server port (default: 3111)
+- `listen_all` - Listen on `0.0.0.0` instead of `127.0.0.1` (default: `false`, see [Network access](#network-access--security))
 - `auto_detect` - Enable automatic installation detection
 - `custom_installations` - User-added paths
 - `debug_mode` - Enable verbose logging to `starlogs_debug.log`
@@ -481,6 +483,14 @@ To monitor multiple versions:
 4. History browser shows logs for selected version
 
 ---
+
+## Network access & security
+
+By default StarLogs only listens on `127.0.0.1`, so only your own PC can open the dashboard. Requests with a foreign `Host` or `Origin` header are rejected to block DNS-rebinding and cross-site attacks from web pages open in your browser.
+
+You can enable **Allow network access (listen on 0.0.0.0)** in *Settings → General* (or set `"listen_all": true` in `starlogs_config.json`). A confirmation warning is shown, and a warning is printed at startup while it is active.
+
+> **Warning:** this allows anyone on your network to access the application **without authentication**. That includes browsing historical logs and exporting reports. Only enable it on trusted networks, and consider a firewall rule limited to the devices you want to allow. Changes require restarting StarLogs.
 
 ## Development
 

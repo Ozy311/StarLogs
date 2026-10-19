@@ -1,6 +1,19 @@
 // StarLogs - Enhanced UI with event timeline
 // Author: Ozy311
 
+// Escape untrusted text (log contents, file paths) before it goes into innerHTML
+function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+}
+function escapeDeep(value) {
+    if (typeof value === 'string') return escapeHtml(value);
+    if (Array.isArray(value)) return value.map(escapeDeep);
+    if (value && typeof value === 'object') {
+        return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, escapeDeep(v)]));
+    }
+    return value;
+}
+
 class StarLogsApp {
     constructor() {
         this.eventSource = null;
@@ -107,6 +120,7 @@ class StarLogsApp {
         // General settings
         this.portInput = document.getElementById('port-input');
         this.portSaveStatus = document.getElementById('port-save-status');
+        this.listenAllToggle = document.getElementById('listen-all-toggle');
         
         // Historical logs
         this.historyBtn = document.getElementById('history-btn');
@@ -331,6 +345,16 @@ class StarLogsApp {
             portSaveTimeout = setTimeout(() => {
                 this.savePortSetting(parseInt(e.target.value));
             }, 500);
+        });
+        
+        // Network access toggle (warns before enabling 0.0.0.0)
+        this.listenAllToggle.addEventListener('change', (e) => {
+            const enable = e.target.checked;
+            if (enable && !confirm('SECURITY WARNING\n\nThis allows anyone on your network to access the application without authentication.\n\nEnable network access?')) {
+                e.target.checked = false;
+                return;
+            }
+            this.saveListenAllSetting(enable);
         });
         
         // Version dropdown toggle
@@ -1013,6 +1037,8 @@ class StarLogsApp {
         eventDiv.className = `event-item ${event.type}`;
         eventDiv.dataset.type = event.type;
         
+        event = { ...event, details: escapeDeep(event.details) };
+        
         // Format timestamp
         const time = event.timestamp ? new Date(event.timestamp).toLocaleTimeString() : 'Unknown';
         
@@ -1464,26 +1490,31 @@ class StarLogsApp {
         
         card.innerHTML = `
             <div class="card-header">
-                <span class="card-title">${install.display_name}</span>
+                <span class="card-title">${escapeHtml(install.display_name)}</span>
                 ${install.is_active ? '<span class="card-badge monitoring">Currently Monitoring</span>' : ''}
                 ${install.auto_detected ? '<span class="card-badge">Auto-Detected</span>' : '<span class="card-badge">Custom</span>'}
             </div>
             <div class="card-body">
-                <div class="card-info"><strong>Version:</strong> ${install.version_string || 'Unknown'}</div>
-                <div class="card-info"><strong>Build:</strong> ${install.build || 'Unknown'}</div>
-                <div class="card-info"><strong>Branch:</strong> ${install.branch || 'Unknown'}</div>
+                <div class="card-info"><strong>Version:</strong> ${escapeHtml(install.version_string || 'Unknown')}</div>
+                <div class="card-info"><strong>Build:</strong> ${escapeHtml(install.build || 'Unknown')}</div>
+                <div class="card-info"><strong>Branch:</strong> ${escapeHtml(install.branch || 'Unknown')}</div>
                 <div class="card-info"><strong>Log:</strong> ${hasLog} ${logStatus}</div>
-                <div class="card-path"><strong>Path:</strong> ${install.path}</div>
+                <div class="card-path"><strong>Path:</strong> ${escapeHtml(install.path)}</div>
             </div>
             <div class="card-actions">
                 ${!install.is_active && install.has_log ? 
-                    `<button class="btn-primary btn-monitor" onclick="app.switchToInstallation('${install.version}', '${install.display_name}')">Monitor This</button>` : 
+                    `<button class="btn-primary btn-monitor" data-action="monitor">Monitor This</button>` : 
                     ''}
                 ${!install.auto_detected ? 
-                    `<button class="btn-secondary btn-remove" onclick="app.removeCustomPath('${install.version}')">Remove</button>` : 
+                    `<button class="btn-secondary btn-remove" data-action="remove">Remove</button>` : 
                     ''}
             </div>
         `;
+        
+        card.querySelector('[data-action="monitor"]')?.addEventListener('click',
+            () => this.switchToInstallation(install.version, install.display_name));
+        card.querySelector('[data-action="remove"]')?.addEventListener('click',
+            () => this.removeCustomPath(install.version));
         
         return card;
     }
@@ -1584,6 +1615,7 @@ class StarLogsApp {
             console.log('[DEBUG] Received config data:', data);
             console.log('[DEBUG] web_port value:', data.web_port);
             
+            this.listenAllToggle.checked = !!data.listen_all;
             if (data.web_port) {
                 console.log('[DEBUG] Setting port input to:', data.web_port);
                 this.portInput.value = data.web_port;
@@ -1593,6 +1625,25 @@ class StarLogsApp {
         } catch (error) {
             console.error('Failed to load settings:', error);
         }
+    }
+    
+    async saveListenAllSetting(enabled) {
+        try {
+            const response = await fetch('/api/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ listen_all: enabled })
+            });
+            const result = await response.json();
+            if (result.status !== 'success') throw new Error(result.message || 'Failed to save');
+            this.portSaveStatus.textContent = '✓ Saved! Restart StarLogs to apply changes.';
+            this.portSaveStatus.className = 'validation-result success';
+        } catch (error) {
+            this.listenAllToggle.checked = !enabled;
+            this.portSaveStatus.textContent = `✗ Error: ${error.message}`;
+            this.portSaveStatus.className = 'validation-result error';
+        }
+        this.portSaveStatus.style.display = 'block';
     }
     
     async savePortSetting(port) {
@@ -1741,21 +1792,21 @@ class StarLogsApp {
         item.innerHTML = `
             <div class="history-item-left">
                 <div class="history-item-header">
-                    <span class="history-item-title">${file.filename}</span>
+                    <span class="history-item-title">${escapeHtml(file.filename)}</span>
                 </div>
                 <div class="history-item-info">
                     <span><strong>Size:</strong> ${sizeStr}</span>
                     <span><strong>~Lines:</strong> ${estimatedLines}</span>
-                    ${file.build ? `<span><strong>Build:</strong> ${file.build}</span>` : ''}
+                    ${file.build ? `<span><strong>Build:</strong> ${escapeHtml(file.build)}</span>` : ''}
                 </div>
             </div>
             <div class="history-item-right">
-                <span class="history-item-date">${file.date || 'Unknown date'}</span>
+                <span class="history-item-date">${escapeHtml(file.date || 'Unknown date')}</span>
                 <div class="history-item-actions">
-                    <button class="btn-view" data-file="${encodeURIComponent(file.path)}" data-filename="${file.filename}">
+                    <button class="btn-view" data-file="${encodeURIComponent(file.path)}" data-filename="${escapeHtml(file.filename)}">
                         📊 View
                     </button>
-                    <button class="btn-export" data-file="${encodeURIComponent(file.path)}" data-filename="${file.filename}">
+                    <button class="btn-export" data-file="${encodeURIComponent(file.path)}" data-filename="${escapeHtml(file.filename)}">
                         💾 Export
                     </button>
                 </div>
