@@ -18,6 +18,7 @@ class ConfigManager:
         'installations': {},
         'active_version': None,
         'web_port': 3111,
+        'listen_all': False,  # True = bind 0.0.0.0 (LAN access, no authentication)
         'auto_detect': True,
         'custom_installations': [],
         'debug_mode': False,
